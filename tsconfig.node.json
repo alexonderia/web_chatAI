@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "strict": true,
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": ["vite.config.ts", "src"]
+}
