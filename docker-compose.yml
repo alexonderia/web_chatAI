@@ -1,8 +1,0 @@
-services:
-  web-chat-ai:
-    build: .
-    image: web-chat-ai
-    container_name: web-chat-ai
-    ports:
-      - "8080:80"
-    restart: unless-stopped
