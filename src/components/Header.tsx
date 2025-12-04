@@ -22,11 +22,11 @@ const Branding = styled(Box)(({ theme }) => ({
 
 function Header({ onLogin, onRegister }: HeaderProps) {
   return (
-    <AppBar position="static" color="transparent" elevation={0} sx={{ py: 2 }}>
-      <Toolbar sx={{ maxWidth: 1200, width: '100%', mx: 'auto', justifyContent: 'space-between' }}>
+    <AppBar position="static" color="transparent" elevation={0}>
+      <Toolbar sx={{ width: '100%', mx: 'auto', bgcolor:'white', justifyContent: 'space-between' }}>
         <Branding>
-          <img src={logo} alt="Web ChatAI" width={40} height={40} />
-          <Typography variant="h6" component="div">
+          <img src={logo} alt="Web ChatAI" width={36} height={36} />
+          <Typography variant="h4" fontWeight={600} component="div">
             Web ChatAI
           </Typography>
         </Branding>

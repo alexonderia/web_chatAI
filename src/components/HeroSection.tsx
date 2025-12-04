@@ -8,7 +8,7 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 
 const PromptBar = styled(Paper)(({ theme }) => ({
-  maxWidth: 640,
+  maxWidth: 720,
   width: '100%',
   padding: theme.spacing(1.5, 2),
   display: 'flex',
@@ -16,7 +16,11 @@ const PromptBar = styled(Paper)(({ theme }) => ({
   gap: theme.spacing(1),
   backgroundColor: alpha(theme.palette.common.white, 0.9),
   border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
-  boxShadow: '0 16px 50px rgba(0, 74, 173, 0.06)',
+  borderRadius: 60,
+  boxShadow: '0 16px 50px rgba(0, 46, 106, 0.06)',
+  '&:has(input:focus)': {
+    border: `1.2px solid ${alpha(theme.palette.primary.main, 1)}`,
+  },
 }));
 
 function HeroSection() {

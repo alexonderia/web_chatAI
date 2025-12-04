@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -28,7 +27,7 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
   );
 
   const secondaryAction = useMemo(
-    () => (mode === 'login' ? 'Регистрация' : 'Войти'),
+    () => (mode === 'login' ? 'Регистрация' : 'Вход'),
     [mode],
   );
 
@@ -38,22 +37,47 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 4, p: 1.5 } }}
+      BackdropProps={{
+        sx: {
+          backdropFilter: "blur(4px)",  
+          backgroundColor: "rgba(0,0,0,0.2)", 
+        },
+      }}
+      PaperProps={{
+        sx: {
+          minHeight: 600,         
+          borderRadius: 2,
+          px: 4,
+          py: 4,
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
     >
-      <DialogTitle sx={{ textAlign: 'center' }}>
-        <Stack spacing={2} alignItems="center">
+      <DialogTitle 
+        sx={{
+          my: 4,
+        }}>
+        <Stack spacing={1} alignItems="center">
           <Box
             component="img"
             src={logo}
             alt="Web ChatAI"
-            sx={{ width: 72, height: 72, borderRadius: 2, bgcolor: 'grey.100', p: 1 }}
+            sx={{ width: 136, height: 136, borderRadius: 2, bgcolor: 'white'}}
           />
-          <Typography variant="h5" component="div" color="text.primary">
+          <Typography variant="h5" component="div" fontWeight={500} color="text.primary">
             {title}
           </Typography>
         </Stack>
       </DialogTitle>
-      <DialogContent>
+      <Box 
+        sx={{
+            width: '100%',
+            flexGrow: 1, // занимает всё оставшееся место
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+          }}>
         <Stack spacing={2.5} alignItems="stretch">
           <Stack spacing={1.5}>
             <TextField label="Логин" variant="outlined" fullWidth autoFocus />
@@ -71,7 +95,7 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
             </Button>
           </Stack>
         </Stack>
-      </DialogContent>
+      </Box>
     </Dialog>
   );
 }

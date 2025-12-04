@@ -1,0 +1,10 @@
+services:
+  web-chat-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: web-chat-ai:latest
+    container_name: web-chat-ai
+    ports:
+      - "8080:80"   # локальный порт → порт nginx внутри контейнера
+    restart: unless-stopped
