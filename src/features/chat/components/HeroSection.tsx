@@ -14,12 +14,23 @@ const PromptBar = styled(Paper)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(1),
-  backgroundColor: alpha(theme.palette.common.white, 0.9),
-  border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
-  borderRadius: 60,
-  boxShadow: '0 16px 50px rgba(0, 46, 106, 0.06)',
+  // такой же тёмный бар, как в чате
+  backgroundColor:
+    theme.palette.mode === 'light'
+      ? alpha(theme.palette.background.paper, 0.96)
+      : alpha(theme.palette.background.paper, 0.98),
+  borderRadius: 999, // полностью «пилюля»
+  border: `1px solid ${
+    theme.palette.mode === 'light'
+      ? alpha(theme.palette.primary.main, 0.18)
+      : 'rgba(255, 255, 255, 0.18)'
+  }`,
+  boxShadow: 'none', // убираем тень
   '&:has(input:focus)': {
-    border: `1.2px solid ${alpha(theme.palette.primary.main, 1)}`,
+    borderColor:
+      theme.palette.mode === 'light'
+        ? theme.palette.primary.main
+        : '#ffffff',
   },
 }));
 
@@ -47,7 +58,17 @@ function HeroSection() {
           placeholder="Введите ваш вопрос..."
           fullWidth
           inputProps={{ 'aria-label': 'Введите ваш вопрос' }}
-          sx={{ fontSize: 18, color: 'text.primary' }}
+          sx={(theme) => ({
+            fontSize: 18,
+            color: theme.palette.text.primary,
+            '& .MuiInputBase-input::placeholder': {
+              color:
+                theme.palette.mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.9)' // как на первом скрине
+                  : theme.palette.text.secondary,
+              opacity: 1,
+            },
+          })}
         />
         <IconButton aria-label="search" color="primary">
           <SearchRoundedIcon />

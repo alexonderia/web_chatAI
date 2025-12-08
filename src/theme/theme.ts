@@ -9,9 +9,9 @@ interface AppThemeOptions {
 }
 
 const fontSizeMultiplier: Record<FontSizePreset, number> = {
-  small: 0.9,
+  small: 0.7,
   medium: 1,
-  large: 1.1,
+  large: 1.3,
 };
 
 export function createAppTheme(options: AppThemeOptions): Theme {
@@ -24,69 +24,74 @@ export function createAppTheme(options: AppThemeOptions): Theme {
     palette: {
       mode,
       primary: {
-        main: '#0d47a1',
-        light: '#42a5f5',
-        dark: '#002171',
+        main: '#005dac',
+        light: '#6acff6',
+        dark: '#283a97',
       },
       secondary: {
-        main: '#00bcd4',
-        light: '#62efff',
-        dark: '#008ba3',
+        main: '#00aef0', 
+        light: '#6acff6',
+        dark: '#005dac',
       },
       background: {
-        default: isLight ? '#f3f7fb' : '#050712',
-        paper: isLight ? '#ffffff' : '#101321',
+        default: isLight ? '#f1f7ff' : '#0b1221',
+        paper: isLight ? '#ffffff' : '#0f1830',
       },
       text: {
-        primary: isLight ? '#0d1b2a' : '#f5f7ff',
-        secondary: isLight ? '#43607c' : '#a9b4d8',
+        primary: isLight ? '#0b1a33' : '#eef2ff',
+        secondary: isLight ? '#3a5174' : '#b3c1e4',
       },
     },
     shape: {
       borderRadius: 16,
     },
     typography: {
-      fontFamily: 'Roboto, system-ui, -apple-system, "Segoe UI", sans-serif',
+      fontFamily: '"Open Sans", "PT Sans", system-ui, -apple-system, "Segoe UI", sans-serif',
+      fontWeightRegular: 400,
+      fontWeightMedium: 600,
+      fontWeightBold: 700,
       fontSize: Math.round(14 * k),
       h2: {
-        fontWeight: 700,
-        letterSpacing: '-0.02em',
+        fontFamily: '"PT Sans", "Open Sans", system-ui, sans-serif',
+        fontWeight: 600,
+        letterSpacing: '-0.01em',
       },
       h3: {
+        fontFamily: '"PT Sans", "Open Sans", system-ui, sans-serif',
         fontWeight: 600,
-        letterSpacing: '-0.02em',
+        letterSpacing: '-0.01em',
+      },
+      h4: {
+        fontFamily: '"PT Sans", "Open Sans", system-ui, sans-serif',
+        fontWeight: 600,
+        letterSpacing: '-0.005em',
       },
       subtitle1: {
         fontWeight: 500,
-        letterSpacing: '-0.01em',
+        letterSpacing: 0,
       },
       body1: {
         fontSize: 14 * k,
+        lineHeight: 1.6,
       },
       body2: {
+        fontFamily: '"Open Sans", "PT Sans", system-ui, sans-serif',
+        fontWeight: 400,
         fontSize: 13 * k,
+        lineHeight: 1.5,
       },
       button: {
         textTransform: 'none',
+        fontWeight: 500,
       },
     },
     components: {
       MuiCssBaseline: {
-        // фон страницы и цвет текста зависят от темы
         styleOverrides: (themeParam) => ({
           body: {
             margin: 0,
             minHeight: '100vh',
-            background:
-              themeParam.palette.mode === 'light'
-                ? `radial-gradient(circle at 20% 20%, rgba(0, 188, 212, 0.07), transparent 35%),
-                   radial-gradient(circle at 80% 10%, rgba(63, 81, 181, 0.12), transparent 35%),
-                   radial-gradient(circle at 50% 80%, rgba(3, 169, 244, 0.1), transparent 35%),
-                   #f3f7fb`
-                : `radial-gradient(circle at 20% 20%, rgba(0, 188, 212, 0.12), transparent 35%),
-                   radial-gradient(circle at 80% 10%, rgba(63, 81, 181, 0.22), transparent 35%),
-                   radial-gradient(circle at 50% 80%, rgba(3, 169, 244, 0.2), transparent 35%),
-                   #050712`,
+            backgroundColor: themeParam.palette.background.default,
             color: themeParam.palette.text.primary,
           },
         }),
@@ -100,13 +105,88 @@ export function createAppTheme(options: AppThemeOptions): Theme {
             textTransform: 'none',
             borderRadius: 999,
             paddingInline: '18px',
+            fontWeight: 500,
+          },
+
+          containedPrimary: {
+            backgroundColor: isLight ? '#005dac' : '#1b8cff',
+            color: '#ffffff',
+            '&:hover': {
+              backgroundColor: isLight ? '#00427a' : '#3b93ff',
+            },
+          },
+
+          outlined: {
+            borderWidth: 1,
+            borderColor: isLight
+              ? 'rgba(0, 93, 172, 0.4)'
+              : 'rgba(255, 255, 255, 0.7)',
+            color: isLight ? '#005dac' : '#e5f3ff',
+            '&:hover': {
+              borderColor: isLight ? '#005dac' : '#ffffff',
+              backgroundColor: isLight
+                ? 'rgba(0, 93, 172, 0.04)'
+                : 'rgba(255, 255, 255, 0.06)',
+            },
+            '&.Mui-disabled': {
+              borderColor: isLight
+                ? 'rgba(148, 163, 184, 0.6)'
+                : 'rgba(148, 163, 184, 0.7)',
+              color: isLight
+                ? 'rgba(148, 163, 184, 0.9)'
+                : 'rgba(226, 232, 240, 0.9)',
+            },
+          },
+
+          textPrimary: {
+            color: isLight ? '#005dac' : '#e5f3ff',
+            '&:hover': {
+              backgroundColor: isLight
+                ? 'rgba(0, 93, 172, 0.06)'
+                : 'rgba(255, 255, 255, 0.08)',
+            },
           },
         },
       },
       MuiPaper: {
         styleOverrides: {
           root: {
-            borderRadius: 20,
+            borderRadius: 2,
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isLight ? '#f9fafb' : 'rgba(15, 23, 42, 0.85)',
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: isLight
+                ? 'rgba(15, 23, 42, 0.12)'
+                : 'rgba(226, 232, 240, 0.35)',
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: isLight ? '#005dac' : '#6acff6',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: isLight ? '#005dac' : '#ffffff',
+            },
+          },
+          input: {
+            paddingTop: 12,
+            paddingBottom: 12,
+          },
+        },
+      },
+
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: isLight
+              ? 'rgba(15, 23, 42, 0.6)'
+              : 'rgba(226, 232, 240, 0.8)',
+            '&.Mui-focused': {
+              color: isLight ? '#005dac' : '#6acff6',
+            },
           },
         },
       },

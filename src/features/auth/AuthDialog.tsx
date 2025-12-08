@@ -13,23 +13,15 @@ interface AuthDialogProps {
   open: boolean;
   mode: 'login' | 'register';
   onClose: () => void;
+  onAction?: () => void;
 }
 
-function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
-  const title = useMemo(
-    () => (mode === 'login' ? 'Авторизация' : 'Регистрация'),
-    [mode],
-  );
+function AuthDialog({ open, mode, onClose, onAction }: AuthDialogProps) {
+  const title = useMemo(() => (mode === 'login' ? 'Авторизация' : 'Регистрация'), [mode]);
 
-  const primaryAction = useMemo(
-    () => (mode === 'login' ? 'Вход' : 'Регистрация'),
-    [mode],
-  );
+  const primaryAction = useMemo(() => (mode === 'login' ? 'Вход' : 'Регистрация'), [mode]);
 
-  const secondaryAction = useMemo(
-    () => (mode === 'login' ? 'Регистрация' : 'Вход'),
-    [mode],
-  );
+  const secondaryAction = useMemo(() => (mode === 'login' ? 'Регистрация' : 'Вход'), [mode]);
 
   return (
     <Dialog
@@ -39,8 +31,8 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
       fullWidth
       BackdropProps={{
         sx: {
-          backdropFilter: "blur(4px)",  
-          backgroundColor: "rgba(0,0,0,0.2)", 
+          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(0,0,0,0.2)',
         },
       }}
       PaperProps={{
@@ -59,12 +51,7 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
           my: 4,
         }}>
         <Stack spacing={1} alignItems="center">
-          <Box
-            component="img"
-            src={logo}
-            alt="Web ChatAI"
-            sx={{ width: 136, height: 136 }}
-          />
+          <Box component="img" src={logo} alt="Web ChatAI" sx={{ width: 136, height: 136 }} />
           <Typography variant="h5" component="div" fontWeight={500} color="text.primary">
             {title}
           </Typography>
@@ -73,7 +60,7 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
       <Box 
         sx={{
             width: '100%',
-            flexGrow: 1, // занимает всё оставшееся место
+            flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-start',
@@ -87,10 +74,10 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
           <Divider flexItem sx={{ my: 1 }} />
 
           <Stack spacing={1.25}>
-            <Button variant="contained" color="primary" size="large">
+            <Button variant="contained" color="primary" size="large" onClick={onAction}>
               {primaryAction}
             </Button>
-            <Button variant="outlined" color="primary" size="large">
+            <Button variant="outlined" color="primary" size="large" onClick={onAction}>
               {secondaryAction}
             </Button>
           </Stack>

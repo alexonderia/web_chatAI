@@ -1,4 +1,3 @@
-// theme/ThemeSettingsProvider.tsx
 import {
   createContext,
   useContext,
@@ -21,6 +20,7 @@ const ThemeSettingsContext = createContext<ThemeSettingsContextValue | undefined
   undefined,
 );
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useThemeSettings() {
   const ctx = useContext(ThemeSettingsContext);
   if (!ctx) {
