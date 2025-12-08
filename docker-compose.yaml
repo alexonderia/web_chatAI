@@ -6,5 +6,5 @@ services:
     image: web-chat-ai:latest
     container_name: web-chat-ai
     ports:
-      - "8080:80"   # локальный порт → порт nginx внутри контейнера
+      - "8080:80"   
     restart: unless-stopped

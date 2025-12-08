@@ -7,7 +7,7 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
-import logo from '@/assets/logo.jpeg';
+import logo from '@/assets/logo.svg';
 
 interface AuthDialogProps {
   open: boolean;
@@ -63,7 +63,7 @@ function AuthDialog({ open, mode, onClose }: AuthDialogProps) {
             component="img"
             src={logo}
             alt="Web ChatAI"
-            sx={{ width: 136, height: 136, borderRadius: 2, bgcolor: 'white'}}
+            sx={{ width: 136, height: 136 }}
           />
           <Typography variant="h5" component="div" fontWeight={500} color="text.primary">
             {title}

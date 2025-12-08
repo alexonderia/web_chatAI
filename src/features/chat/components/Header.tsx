@@ -5,7 +5,7 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
-import logo from '@/assets/logo.jpeg';
+import logo from '@/assets/logo.svg';
 
 interface HeaderProps {
   onRegister: () => void;
