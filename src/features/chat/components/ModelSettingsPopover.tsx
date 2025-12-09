@@ -44,7 +44,8 @@ export function ModelSettingsPopover({
       anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       PaperProps={{
-        sx: {
+        elevation: 0,
+        sx: {          
           p: 0,
           boxShadow: 'none',
           backgroundColor: 'transparent',

@@ -56,7 +56,7 @@ export function ChatTopBar({
                     <Button
                         variant="text"
                         color="primary"
-                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                        sx={(theme) => ({ textTransform: 'none', fontWeight: 600, color: theme.palette.text.primary })}
                         onClick={onClearChat}
                     >
                         Очистить чат

@@ -6,7 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import { useThemeSettings } from '../../theme/ThemeSettingsProvider'; 
-
+import { useState } from 'react';
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -15,6 +15,7 @@ interface UserSettingsDialogProps {
 
 export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
   const { mode, fontSize, setMode, setFontSize } = useThemeSettings();
+  const [selectedModel, setSelectedModel] = useState<'model-1' | 'model-2' | 'model-3'>('model-1');
   return (
     <Dialog
       open={open}
@@ -31,13 +32,19 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
         }),
       }}
       PaperProps={{
-        sx: (theme) => ({
+        elevation: 0,
+        sx: (theme) => ({          
           borderRadius: 2,
           px: 4,
           py: 4,
           backgroundColor: theme.palette.background.paper,
           color: theme.palette.text.primary,
-          boxShadow: theme.shadows[24],
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+            width: 0,
+            height: 0,
+          },
+          scrollbarWidth: 'none',
         }),
       }}
     >
@@ -132,6 +139,10 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
             select
             placeholder="Выбранная модель"
             variant="outlined"
+            value={selectedModel}
+            onChange={(e) =>
+              setSelectedModel(e.target.value as 'model-1' | 'model-2' | 'model-3')
+            }
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 999,

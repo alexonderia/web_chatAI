@@ -139,7 +139,19 @@ export function ChatSidebar({
             <Typography variant="subtitle1" fontWeight={700} color="text.primary" sx={{ px: 1.2 }}>
               Ваши чаты
             </Typography>
-            <Button color="secondary" size="small" sx={{ fontWeight: 700, minWidth: 'auto' }}>
+            <Button
+              size="small"
+              variant="text"
+              sx={(theme) => ({
+                minWidth: 'auto',
+                fontWeight: 600,               
+                textTransform: 'none',
+                color: theme.palette.text.primary, 
+                '&:hover': {
+                  backgroundColor: 'transparent',
+                },
+              })}
+            >
               Очистить всё
             </Button>
           </Stack>

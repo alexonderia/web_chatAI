@@ -43,7 +43,7 @@ export function ChatMessageCard({ message }: ChatMessageCardProps) {
               ? alpha(theme.palette.primary.light, isDark ? 0.25 : 0.18)
               : alpha(theme.palette.secondary.light, isDark ? 0.3 : 0.22),
             color: theme.palette.text.primary,
-            borderRadius: '18px', // ← скругление со всех сторон
+            borderRadius: '18px', 
             border: `1px solid ${alpha(
               isAssistant ? theme.palette.primary.main : theme.palette.secondary.main,
               0.25,
@@ -51,7 +51,11 @@ export function ChatMessageCard({ message }: ChatMessageCardProps) {
           };
         }}
       >
-        <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+        <Typography variant="body1" sx={{
+          whiteSpace: 'pre-line',
+          overflowWrap: 'anywhere',   
+          wordBreak: 'break-word',    
+        }}>
           {message.content}
         </Typography>
       </Paper>

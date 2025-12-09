@@ -29,7 +29,7 @@ const initialMessages: ChatMessage[] = [
     role: 'assistant',
     author: 'ИИ ассистент',
     content:
-      'Текст ответа ответа Текст ответа\nТекст ответа ответа Текст ответа\nТекст ответа ответа Текст ответа ответа Текст ответа ответа',
+      'Текст ответа ответа Текст ответа Текст ответа ответа Текст ответа Текст ответа Текст ответа ответа Текст ответа ответа',
   },
 ];
 
@@ -103,7 +103,7 @@ function NewChatPage() {
           p: { xs: 3, md: 6 },
           mt: 10,
           ml: { xs: 0, sm: `${sidebarWidth}px` },
-          minHeight: `calc(100vh - ${theme.spacing(10)})`, // 100vh - высота AppBar (mt:10)
+          minHeight: `calc(100vh - ${theme.spacing(10)})`, 
           boxSizing: 'border-box',
           transition: theme.transitions.create('margin-left', {
             easing: theme.transitions.easing.sharp,

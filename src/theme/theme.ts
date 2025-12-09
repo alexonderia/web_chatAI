@@ -152,6 +152,9 @@ export function createAppTheme(options: AppThemeOptions): Theme {
         styleOverrides: {
           root: {
             borderRadius: 2,
+            ...( !isLight && {
+              backgroundImage: 'none', 
+            }),
           },
         },
       },
@@ -185,10 +188,19 @@ export function createAppTheme(options: AppThemeOptions): Theme {
               ? 'rgba(15, 23, 42, 0.6)'
               : 'rgba(226, 232, 240, 0.8)',
             '&.Mui-focused': {
-              color: isLight ? '#005dac' : '#6acff6',
+              color: isLight ? '#005dac' : '#ffffffff',
+            },
+            '&.MuiInputLabel-outlined': {
+              top: '50%',
+              transform: 'translate(14px, -50%) scale(1)',
+              '&.MuiInputLabel-shrink': {
+                top: 0,
+                transform: 'translate(14px, -9px) scale(0.75)',
+              },
             },
           },
         },
+        
       },
     },
   });

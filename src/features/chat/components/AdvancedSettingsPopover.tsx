@@ -108,7 +108,6 @@ export function AdvancedSettingsPopover({
                   border: (theme) =>
                     `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
                   fontSize: 14,
-                  backgroundColor: 'white',
                   color: 'text.primary',
                 }}
               />

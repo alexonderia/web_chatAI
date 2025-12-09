@@ -30,10 +30,7 @@ function Header({ onLogin, onRegister }: HeaderProps) {
           px: { xs: 2, md: 4 },
           py: 2,
           justifyContent: 'space-between',
-          backgroundColor:
-            theme.palette.mode === 'light'
-              ? alpha(theme.palette.background.paper, 0.9)
-              : alpha(theme.palette.background.paper, 0.85),
+          backgroundColor: theme.palette.background.paper,
           backdropFilter: 'blur(10px)',
           borderBottom: `1px solid ${theme.palette.mode === 'light'
               ? alpha(theme.palette.common.black, 0.06)
