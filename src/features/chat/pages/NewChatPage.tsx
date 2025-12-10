@@ -1,4 +1,4 @@
-import { MouseEvent, useMemo, useState } from 'react';
+import { MouseEvent, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 
@@ -13,6 +13,8 @@ import {
   ModelId,
 } from '@/features/chat/components/ModelSettingsPopover';
 import { ChatMessage } from '@/features/chat/components/ChatMessageCard';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useSimpleRouter } from '@/app/router/SimpleRouter';
 
 const drawerWidth = 320;
 const collapsedWidth = 84;
@@ -35,8 +37,10 @@ const initialMessages: ChatMessage[] = [
 
 
 function NewChatPage() {
+  const { user, chats, refreshChats, createChat, initializing } = useAuth();
+  const { navigate } = useSimpleRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedChat, setSelectedChat] = useState<number | null>(0);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [modelSettingsAnchor, setModelSettingsAnchor] = useState<HTMLElement | null>(null);
   const [advancedSettingsAnchor, setAdvancedSettingsAnchor] = useState<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -65,7 +69,30 @@ function NewChatPage() {
   const handleCloseAdvancedSettings = () => setAdvancedSettingsAnchor(null);
 
   const handleClearChat = () => setMessages([]);
-  const handleStartNewChat = () => setMessages(initialMessages);
+  const handleStartNewChat = async () => {
+    const chat = await createChat('Новый чат');
+    if (chat) {
+      setSelectedChat(chat.id);
+    }
+    setMessages(initialMessages);
+  };
+
+  useEffect(() => {
+    if (chats.length > 0 && !selectedChat) {
+      setSelectedChat(chats[0].id);
+    }
+  }, [chats, selectedChat]);
+
+  useEffect(() => {
+    if (!initializing && !user) {
+      navigate('/');
+      return;
+    }
+
+    if (user) {
+      refreshChats();
+    }
+  }, [user, initializing, navigate, refreshChats]);
 
   return (
     <Box
@@ -81,6 +108,7 @@ function NewChatPage() {
         open={sidebarOpen}
         drawerWidth={drawerWidth}
         collapsedWidth={collapsedWidth}
+        chats={chats}
         selectedChat={selectedChat}
         onSelectChat={setSelectedChat}
         onToggle={() => setSidebarOpen((prev) => !prev)}

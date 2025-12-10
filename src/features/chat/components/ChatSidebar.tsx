@@ -16,13 +16,15 @@ import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
 
 import logo from '@/assets/logo.svg';
+import { ChatSummary } from '@/app/api/chat';
 
 type ChatSidebarProps = {
   open: boolean;
   drawerWidth: number;
   collapsedWidth: number;
-  selectedChat: number | null;
-  onSelectChat: (index: number) => void;
+  chats: ChatSummary[];
+  selectedChat: string | null;
+  onSelectChat: (id: string) => void;
   onToggle: () => void;
   onOpenSettings: () => void;
   onCreateChat: () => void;
@@ -32,6 +34,7 @@ export function ChatSidebar({
   open,
   drawerWidth,
   collapsedWidth,
+  chats,
   selectedChat,
   onSelectChat,
   onToggle,
@@ -159,11 +162,22 @@ export function ChatSidebar({
           <Divider sx={{ mb: 1.5 }} />
 
           <List sx={{ flexGrow: 1 }} disablePadding>
-            {['Название чата', 'Название чата', 'Название чата'].map((text, index) => (
-              <ListItem key={index} disablePadding>
+            {chats.length === 0 && (
+              <ListItem disablePadding>
+                <ListItemText
+                  primary="Список чатов пуст"
+                  secondary="Создайте новый чат, чтобы начать"
+                  sx={{ px: 1.2 }}
+                  primaryTypographyProps={{ fontWeight: 600 }}
+                />
+              </ListItem>
+            )}
+
+            {chats.map((chat) => (
+              <ListItem key={chat.id} disablePadding>
                 <ListItemButton
-                  selected={selectedChat === index}
-                  onClick={() => onSelectChat(index)}
+                  selected={selectedChat === chat.id}
+                  onClick={() => onSelectChat(chat.id)}
                   sx={(theme) => ({
                     px: 1.2,
                     borderRadius: 1,
@@ -178,7 +192,7 @@ export function ChatSidebar({
                     },
                   })}
                 >
-                  <ListItemText primary={text} primaryTypographyProps={{ fontWeight: 600 }} />
+                  <ListItemText primary={chat.title} primaryTypographyProps={{ fontWeight: 600 }} />
                 </ListItemButton>
               </ListItem>
             ))}

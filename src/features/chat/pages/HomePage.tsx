@@ -5,6 +5,7 @@ import Header from '@/features/chat/components/Header';
 import HeroSection from '@/features/chat/components/HeroSection';
 import AuthDialog from '@/features/auth/AuthDialog';
 import { useSimpleRouter } from '@/app/router/SimpleRouter';
+import { useAuth } from '@/features/auth/AuthProvider';
 
 type AuthMode = 'login' | 'register';
 
@@ -12,6 +13,7 @@ function HomePage() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const { navigate } = useSimpleRouter();
+  const { login, register } = useAuth();
 
   const handleOpenAuth = (mode: AuthMode) => {
     setAuthMode(mode);
@@ -19,7 +21,16 @@ function HomePage() {
   };
 
   const handleCloseAuth = () => setAuthOpen(false);
-  const handleAuthComplete = () => {
+  const handleAuth = async (
+    credentials: { login: string; password: string },
+    mode: AuthMode,
+  ) => {
+    if (mode === 'login') {
+      await login(credentials);
+    } else {
+      await register(credentials);
+    }
+
     setAuthOpen(false);
     navigate('/client/newChat');
   };
@@ -41,7 +52,8 @@ function HomePage() {
         open={authOpen}
         mode={authMode}
         onClose={handleCloseAuth}
-        onAction={handleAuthComplete}
+        onModeChange={setAuthMode}
+        onAuthenticate={handleAuth}
       />
     </Box>
   );
