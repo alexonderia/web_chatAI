@@ -10,11 +10,23 @@ export interface CreateChatPayload {
 }
 
 export const chatApi = {
-  getUserChats(userId: number) {
-    return apiClient.get<ChatSummary[]>(`/Chat/user/${userId}/chats`);
+  getChatSettings(chatId: number) {
+    return apiClient.get(`/Chat/getChatSettings/${chatId}`);
   },
 
-  createChat(payload: CreateChatPayload = {}) {
-    return apiClient.post<ChatSummary>('/Chat', payload);
+  saveChatSettings(dto: any) {
+    return apiClient.post('/Chat/chat/saveChatSettings', dto);
   },
+
+  getMessages(chatId: number) {
+    return apiClient.get(`/Chat/${chatId}/messages`);
+  },
+
+  sendMessage(payload: { chatId: number; userId: number; text: string; base64Images?: string[] }) {
+    return apiClient.post('/Chat/send', payload);
+  },
+
+  createChat(payload = {}) {
+    return apiClient.post('/Chat', payload);
+  }
 };

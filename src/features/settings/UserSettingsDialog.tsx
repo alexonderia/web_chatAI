@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -5,17 +6,161 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
-import { useThemeSettings } from '../../theme/ThemeSettingsProvider'; 
-import { useState } from 'react';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+
+import { useThemeSettings } from '@/theme/ThemeSettingsProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useModels } from '@/features/ai/ModelProvider';
+import { useSettings } from '@/features/settings/SettingsProvider';
+import { aiApi } from '@/app/api/ai';
 
 interface UserSettingsDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
+type ConnectionState =
+  | { type: 'idle'; message: '' }
+  | { type: 'success'; message: string }
+  | { type: 'error'; message: string };
+
 export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
   const { mode, fontSize, setMode, setFontSize } = useThemeSettings();
-  const [selectedModel, setSelectedModel] = useState<'model-1' | 'model-2' | 'model-3'>('model-1');
+  const { user, logout, updateLogin } = useAuth();
+  const { models, selectedModel, selectModel, reloadModels } = useModels();
+  const { settings, updateLocal, save, reload } = useSettings();
+
+  const [editedLogin, setEditedLogin] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [savingLogin, setSavingLogin] = useState(false);
+
+  const [serviceUrl, setServiceUrl] = useState('http://192.168.3.63:5167/');
+  const [connectionState, setConnectionState] = useState<ConnectionState>({
+    type: 'idle',
+    message: '',
+  });
+  const [checking, setChecking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  // Подтягиваем логин из пользователя
+  useEffect(() => {
+    setEditedLogin(user?.login ?? '');
+    setLoginError(null);
+  }, [user?.login, open]);
+
+  // Подтягиваем url из настроек
+  useEffect(() => {
+    if (settings?.serviceUrl !== undefined) {
+      setServiceUrl(settings.serviceUrl);
+      setConnectionState({ type: 'idle', message: '' });
+    }
+  }, [settings?.serviceUrl, open]);
+
+  // Текст статуса подключения
+  const connectionText = useMemo(() => {
+    if (connectionState.type === 'success') return connectionState.message;
+    if (connectionState.type === 'error') return connectionState.message;
+    if (!serviceUrl) return 'URL сервиса не задан.';
+    return 'Нажмите «Проверить», чтобы проверить подключение.';
+  }, [connectionState, serviceUrl]);
+
+  // Выйти из профиля
+  const handleLogout = async () => {
+    await logout();
+    onClose();
+  };
+
+  // Сохранить новый логин
+  const handleSaveLogin = async () => {
+    if (!user) return;
+    const trimmed = editedLogin.trim();
+    if (!trimmed) {
+      setLoginError('Логин не может быть пустым');
+      return;
+    }
+
+    setSavingLogin(true);
+    setLoginError(null);
+    try {
+      await updateLogin(trimmed);
+    } catch (e) {
+      const msg = (e as Error).message || 'Не удалось сохранить логин';
+      setLoginError(msg);
+    } finally {
+      setSavingLogin(false);
+    }
+  };
+
+  const runConnectionCheck = async (withSave: boolean) => {
+    if (!serviceUrl) return;
+
+    setChecking(true);
+    setConnectionState({ type: 'idle', message: '' });
+
+    try {
+      if (withSave && settings) {
+        updateLocal({
+          serviceUrl,
+          defaultModel: selectedModel ?? settings.defaultModel ?? null,
+        });
+        await save();
+      }
+
+      const version = await aiApi.getOllamaVersion();
+      await reloadModels();
+
+      setConnectionState({
+        type: 'success',
+        message:
+          typeof version === 'string'
+            ? `Подключение установлено. Версия: ${version}`
+            : 'Подключение установлено.',
+      });
+    } catch (e) {
+      setConnectionState({
+        type: 'error',
+        message: (e as Error).message || 'Ошибка подключения к сервису ИИ',
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // авто-проверка при открытии, если url уже есть
+  useEffect(() => {
+    if (!open) return;
+    if (!serviceUrl) return;
+    if (connectionState.type !== 'idle') return;
+
+    void runConnectionCheck(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, serviceUrl]);
+
+  const handleCheckConnection = () => {
+    void runConnectionCheck(true);
+  };
+
+  // Сброс настроек к значениям по умолчанию
+  const handleResetSettings = async () => {
+    setResetting(true);
+    setConnectionState({ type: 'idle', message: '' });
+
+    try {
+      // перезагружаем настройки пользователя с сервера
+      await reload();
+      // перезагружаем модели (на случай смены URL)
+      await reloadModels();
+    } catch (e) {
+      setConnectionState({
+        type: 'error',
+        message: (e as Error).message || 'Не удалось сбросить настройки',
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -58,7 +203,15 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
           <TextField
             fullWidth
             size="small"
-            label="Имя"
+            label="Логин"
+            value={editedLogin}
+            onChange={(e) => {
+              setEditedLogin(e.target.value);
+              setLoginError(null);
+            }}
+            error={!!loginError}
+            helperText={loginError ?? 'Логин должен быть уникальным'}
+            
             variant="outlined"
             sx={{
               '& .MuiOutlinedInput-root': {
@@ -68,11 +221,21 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
           />
 
           <Stack direction="row" spacing={2}>
-            <Button variant="outlined" fullWidth>
+            <Button
+              variant="outlined"
+              fullWidth
+              color="inherit"
+              onClick={handleLogout}
+            >
               Выйти из профиля
             </Button>
-            <Button variant="contained" fullWidth>
-              Сохранить
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={handleSaveLogin}
+              disabled={savingLogin}
+            >
+              {savingLogin ? <CircularProgress size={18} /> : 'Сохранить'}
             </Button>
           </Stack>
         </Stack>
@@ -89,7 +252,7 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
               select
               size="small"
               value={mode}
-              onChange={(e) => setMode(e.target.value as 'light' | 'dark')}
+              onChange={(e) => setMode(e.target.value as typeof mode)}
               sx={{ minWidth: 160 }}
             >
               <MenuItem value="light">Светлая</MenuItem>
@@ -104,8 +267,7 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
               size="small"
               value={fontSize}
               onChange={(e) =>
-                setFontSize(e.target.value as 'small' | 'medium' | 'large')
-              }
+                setFontSize(e.target.value as typeof fontSize)}
               sx={{ minWidth: 160 }}
             >
               <MenuItem value="small">Маленький</MenuItem>
@@ -125,6 +287,8 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
             fullWidth
             size="small"
             label="URL сервиса"
+            value={serviceUrl}
+            onChange={(e) => setServiceUrl(e.target.value)}
             variant="outlined"
             sx={{
               '& .MuiOutlinedInput-root': {
@@ -139,36 +303,54 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
             select
             placeholder="Выбранная модель"
             variant="outlined"
-            value={selectedModel}
-            onChange={(e) =>
-              setSelectedModel(e.target.value as 'model-1' | 'model-2' | 'model-3')
-            }
+            // value={selectedModel ?? ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              selectModel(value);
+              updateLocal({ defaultModel: value });
+            }}
+            helperText="Эта модель будет использоваться по умолчанию в новых чатах"
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 999,
               },
             }}
           >
-            <MenuItem value="model-1">Модель 1</MenuItem>
-            <MenuItem value="model-2">Модель 2</MenuItem>
-            <MenuItem value="model-3">Модель 3</MenuItem>
+            {models.map((m) => (
+              <MenuItem key={m.name} value={m.name}>
+                {m.displayName ?? m.name}
+              </MenuItem>
+            ))}
           </TextField>
 
-          <Stack spacing={0.5}>
-            <Typography fontWeight={700} variant="body2">
-              Подключение установлено.
-            </Typography>
-            <Typography variant="body2">
-              Модель по умолчанию: &lt;&gt;
-            </Typography>
-          </Stack>
+          {connectionState.type !== 'idle' && (
+            <Alert
+              severity={connectionState.type === 'success' ? 'success' : 'error'}
+            >
+              {connectionText}
+            </Alert>
+          )}
+
+          {connectionState.type === 'idle' && (
+            <Typography variant="body2">{connectionText}</Typography>
+          )}
 
           <Stack direction="row" spacing={2}>
-            <Button variant="outlined" fullWidth>
-              Сброс настроек
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={handleResetSettings}
+              disabled={resetting}
+            >
+              {resetting ? <CircularProgress size={18} /> : 'Сброс настроек'}
             </Button>
-            <Button variant="contained" fullWidth>
-              Проверить
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={handleCheckConnection}
+              disabled={checking || !serviceUrl}
+            >
+              {checking ? <CircularProgress size={18} /> : 'Проверить'}
             </Button>
           </Stack>
         </Stack>

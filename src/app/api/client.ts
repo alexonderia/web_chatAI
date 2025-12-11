@@ -9,7 +9,9 @@ export class ApiClient {
 
   async request<T>(path: string, options: RequestInit = {}) {
     const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
 
     const response = await fetch(buildUrl(path), {
       ...options,
@@ -35,6 +37,17 @@ export class ApiClient {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     });
+  }
+
+  put<T>(path: string, body?: unknown) {
+    return this.request<T>(path, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  delete<T>(path: string) {
+    return this.request<T>(path, { method: 'DELETE' });
   }
 }
 
