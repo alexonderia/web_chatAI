@@ -165,6 +165,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const prevMessagesLengthRef = useRef(0);
   const prevChatIdRef = useRef<number | null>(null);
+  const prevLastMessageRef = useRef<{ id: string | null; length: number }>({ id: null, length: 0 });
 
   const advancedOpen = Boolean(advancedSettingsAnchor);
 
@@ -338,9 +339,14 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'auto') => {
       const container = scrollContainerRef.current;
+      const anchor = scrollAnchorRef.current;
       if (!container) return;
 
       requestAnimationFrame(() => {
+        if (anchor) {
+          anchor.scrollIntoView({ block: 'end', behavior });
+          return;
+        }
         const top = container.scrollHeight - container.clientHeight;
         container.scrollTo({
           top: top > 0 ? top : 0,
@@ -358,10 +364,15 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     const prevLen = prevMessagesLengthRef.current;
     const currLen = messages.length;
     const prevChatId = prevChatIdRef.current;
+    const lastMessage = messages.at(-1);
+    const lastMessageLength =
+      (lastMessage?.content?.length ?? 0) + (lastMessage?.images?.length ?? 0);
+    const prevLastMessage = prevLastMessageRef.current;
 
     if (!currLen) {
       prevMessagesLengthRef.current = currLen;
       prevChatIdRef.current = selectedChat ?? null;
+      prevLastMessageRef.current = { id: null, length: 0 };
       return;
     }
 
@@ -373,10 +384,15 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     else if (currLen > prevLen) {
       scrollToBottom('smooth');
     }
+    // 3) текущее последнее сообщение выросло (например, идёт генерация длинного ответа)
+    else if (lastMessage?.id === prevLastMessage.id && lastMessageLength > prevLastMessage.length) {
+      scrollToBottom('auto');
+    }
 
     prevMessagesLengthRef.current = currLen;
     prevChatIdRef.current = selectedChat ?? null;
-  }, [messages.length, selectedChat, loadingChat, scrollToBottom]);
+    prevLastMessageRef.current = { id: lastMessage?.id ?? null, length: lastMessageLength };
+  }, [messages, selectedChat, loadingChat, scrollToBottom]);
 
   // когда открываем диалог переименования – тоже держим низ в фокусе
   useLayoutEffect(() => {
@@ -600,22 +616,6 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     }
   };
 
-  // авто-скролл, когда высота контейнера увеличилась (рендер завершился)
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver(() => {
-      // прокрутка в самый низ, если появились новые сообщения
-      scrollToBottom('auto');
-    });
-
-    observer.observe(container);
-
-    return () => observer.disconnect();
-  }, [scrollToBottom]);
-
-
   return (
     <Box
       sx={(theme) => ({
@@ -663,10 +663,13 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
-          p: { xs: 3, md: 6 },
+          px: { xs: 3, md: 6 },
+          pt: { xs: 3, md: 6 },
+          pb: { xs: 1.5, md: 2 },
           mt: 10,
           ml: { xs: 0, sm: `${sidebarWidth}px` },
           minHeight: `calc(100vh - ${theme.spacing(10)})`,
+          overflow: 'hidden',
           boxSizing: 'border-box',
           transition: theme.transitions.create('margin-left', {
             easing: theme.transitions.easing.sharp,
@@ -681,7 +684,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
           sx={{
             flexGrow: 1,
             width: '100%',
-            pb: 2,
+            minHeight: 0,
           }}
         >
           <Box
@@ -693,8 +696,10 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
               flexGrow: 1,
               display: 'flex',
               flexDirection: 'column',
-              overflowY: 'auto',          // только здесь скролл
+              minHeight: 0,
+              overflowY: 'auto',
               overscrollBehavior: 'contain',
+              gap: 3,
             }}
           >
             {loadingChat ? (
@@ -702,23 +707,15 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
                 <CircularProgress />
               </Stack>
             ) : (
-              <ChatThread messages={messages} />
+              <>
+                <ChatThread messages={messages} />
+                <ChatInput onSend={handleSendMessage} disabled={sending || loadingChat} />
+                <Box ref={scrollAnchorRef} sx={{ height: 0 }} />
+              </>
             )}
 
           </Box>
-
-          <Stack
-            sx={{
-              width: '100%',
-              maxWidth: 860,
-              px: { xs: 2, md: 0 },
-            }}
-          >
-            <ChatInput onSend={handleSendMessage} disabled={sending || loadingChat} />
-
-          </Stack>
         </Stack>
-        <Box ref={scrollAnchorRef} sx={{ height: 0 }} />
       </Box>
 
       <ModelSettingsPopover
