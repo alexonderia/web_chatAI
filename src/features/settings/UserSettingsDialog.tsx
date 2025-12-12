@@ -27,7 +27,7 @@ type ConnectionState =
 
 export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
   const { mode, fontSize, setMode, setFontSize } = useThemeSettings();
-  const { user, logout, updateLogin } = useAuth();
+  const { user, logout, updateLogin, deleteAccount } = useAuth();
   const { models, selectedModel, selectModel, reloadModels } = useModels();
   const { settings, updateLocal, save, reload } = useSettings();
 
@@ -36,12 +36,15 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
   const [savingLogin, setSavingLogin] = useState(false);
 
   const [serviceUrl, setServiceUrl] = useState('http://192.168.3.63:5167/');
+  const [defaultModelValue, setDefaultModelValue] = useState('');
   const [connectionState, setConnectionState] = useState<ConnectionState>({
     type: 'idle',
     message: '',
   });
   const [checking, setChecking] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
 
   // Подтягиваем логин из пользователя
   useEffect(() => {
@@ -49,13 +52,26 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
     setLoginError(null);
   }, [user?.login, open]);
 
-  // Подтягиваем url из настроек
+  // Подтягиваем настройки при открытии окна
   useEffect(() => {
-    if (settings?.serviceUrl !== undefined) {
-      setServiceUrl(settings.serviceUrl);
-      setConnectionState({ type: 'idle', message: '' });
+    if (open) {
+      void reload();
     }
-  }, [settings?.serviceUrl, open]);
+  }, [open, reload]);
+
+  // Подтягиваем url и модель из настроек
+  useEffect(() => {
+    if (!open) return;
+
+    setServiceUrl(settings?.serviceUrl ?? 'http://192.168.3.63:5167/');
+
+    const resolvedModel =
+      settings?.defaultModel ?? settings?.model ?? selectedModel ?? models[0]?.name ?? '';
+    setDefaultModelValue(resolvedModel);
+
+    setConnectionState({ type: 'idle', message: '' });
+    setAccountError(null);
+  }, [models, open, selectedModel, settings?.defaultModel, settings?.model, settings?.serviceUrl]);
 
   // Текст статуса подключения
   const connectionText = useMemo(() => {
@@ -100,9 +116,10 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
 
     try {
       if (withSave && settings) {
+        const preferredModel = defaultModelValue || selectedModel || settings.defaultModel || null;
         updateLocal({
           serviceUrl,
-          defaultModel: selectedModel ?? settings.defaultModel ?? null,
+          defaultModel: preferredModel,
         });
         await save();
       }
@@ -158,6 +175,36 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
       });
     } finally {
       setResetting(false);
+    }
+  };
+
+  const handleDefaultModelChange = async (value: string) => {
+    setDefaultModelValue(value);
+    updateLocal({ defaultModel: value });
+    selectModel(value);
+    try {
+      await save();
+    } catch (e) {
+      setConnectionState({
+        type: 'error',
+        message: (e as Error).message || 'Не удалось сохранить модель по умолчанию',
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    if (!window.confirm('Удалить аккаунт без возможности восстановления?')) return;
+
+    setDeletingAccount(true);
+    setAccountError(null);
+    try {
+      await deleteAccount();
+      onClose();
+    } catch (e) {
+      setAccountError((e as Error).message || 'Не удалось удалить аккаунт');
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -238,6 +285,15 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
               {savingLogin ? <CircularProgress size={18} /> : 'Сохранить'}
             </Button>
           </Stack>
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={handleDeleteAccount}
+            disabled={deletingAccount}
+          >
+            {deletingAccount ? <CircularProgress size={18} /> : 'Удалить аккаунт'}
+          </Button>
+          {accountError && <Alert severity="error">{accountError}</Alert>}
         </Stack>
 
         {/* Внешний вид */}
@@ -303,11 +359,10 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
             select
             placeholder="Выбранная модель"
             variant="outlined"
-            // value={selectedModel ?? ''}
+            value={defaultModelValue}
             onChange={(e) => {
               const value = e.target.value;
-              selectModel(value);
-              updateLocal({ defaultModel: value });
+              void handleDefaultModelChange(value);
             }}
             helperText="Эта модель будет использоваться по умолчанию в новых чатах"
             sx={{

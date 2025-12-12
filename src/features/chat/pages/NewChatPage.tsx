@@ -1,4 +1,4 @@
-import { MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { MouseEvent, useCallback, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -97,6 +97,11 @@ const flattenImageValues = (values: unknown): string[] => {
   return [];
 };
 
+type ChatMeta = {
+  lastMessageAt?: string;
+  model?: string | null;
+};
+
 function normalizeImages(item: ChatMessageDto): string[] {
   const candidates = [
     ...(item.base64Images ?? []),
@@ -149,16 +154,20 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<number>(1);
   const [maxTokens, setMaxTokens] = useState<number>(512);
-  const [chatMeta, setChatMeta] = useState<Record<number, string | undefined>>({});
+  const [chatMeta, setChatMeta] = useState<Record<number, ChatMeta>>({});
   const [chatTitleDialogOpen, setChatTitleDialogOpen] = useState(false);
   const [chatTitleValue, setChatTitleValue] = useState('');
   const [chatForAction, setChatForAction] = useState<ChatSummary | null>(null);
   const [dialogMode, setDialogMode] = useState<'create' | 'rename'>('create');
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
+  const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const prevMessagesLengthRef = useRef(0);
+  const prevChatIdRef = useRef<number | null>(null);
 
   const advancedOpen = Boolean(advancedSettingsAnchor);
-  
+
   const sidebarWidth = useMemo(
     () => (sidebarOpen ? drawerWidth : collapsedWidth),
     [sidebarOpen],
@@ -175,7 +184,12 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   }, [chatSettings?.model, models, settings?.defaultModel, settings?.model]);
 
   const chatsWithMeta = useMemo(
-    () => chats.map((chat) => ({ ...chat, lastMessageAt: chatMeta[chat.id] ?? chat.lastMessageAt })),
+    () =>
+      chats.map((chat) => ({
+        ...chat,
+        lastMessageAt: chatMeta[chat.id]?.lastMessageAt ?? chat.lastMessageAt,
+        model: chatMeta[chat.id]?.model ?? chat.model ?? null,
+      })),
     [chatMeta, chats],
   );
 
@@ -184,6 +198,50 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       setCurrentModel(fallbackModel);
     }
   }, [fallbackModel]);
+
+  useEffect(() => {
+    const loadMetaForChats = async () => {
+      const pending = chats.filter((chat) => !chatMeta[chat.id]);
+      if (pending.length === 0) return;
+
+      try {
+        const metaEntries = await Promise.all(
+          pending.map(async (chat) => {
+            try {
+              const [settingsDto, msgs] = await Promise.all([
+                chatApi.getChatSettings(chat.id),
+                chatApi.getMessages(chat.id),
+              ]);
+              return [
+                chat.id,
+                {
+                  lastMessageAt: msgs.at(-1)?.createdAt ?? chat.lastMessageAt,
+                  model: settingsDto.model ?? chat.model ?? null,
+                },
+              ] as const;
+            } catch (err) {
+              console.error(`Не удалось получить метаданные чата ${chat.id}`, err);
+              return [chat.id, { lastMessageAt: chat.lastMessageAt, model: chat.model ?? null }] as const;
+            }
+          }),
+        );
+
+        setChatMeta((prev) => {
+          const next = { ...prev };
+          metaEntries.forEach(([id, meta]) => {
+            if (!next[id]) {
+              next[id] = meta;
+            }
+          });
+          return next;
+        });
+      } catch (err) {
+        console.error('Не удалось загрузить метаданные чатов', err);
+      }
+    };
+
+    void loadMetaForChats();
+  }, [chatMeta, chats]);
 
   useEffect(() => {
     if (chatSettings) {
@@ -210,10 +268,13 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
 
   const handleCloseAdvancedSettings = () => setAdvancedSettingsAnchor(null);
 
-  const updateChatMeta = useCallback((chatId: number, lastMessageAt?: string) => {
-    setChatMeta((prev) => ({ ...prev, [chatId]: lastMessageAt }));
+  const updateChatMeta = useCallback((chatId: number, meta: ChatMeta) => {
+    setChatMeta((prev) => ({
+      ...prev,
+      [chatId]: { ...prev[chatId], ...meta },
+    }));
   }, []);
-  
+
   const navigateToChat = useCallback(
     (chatId: number | null) => {
       if (!chatId) {
@@ -252,7 +313,10 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       ]);
       setChatSettings(settingsDto);
       setMessages(mapMessages(msgs));
-      updateChatMeta(chatId, msgs.at(-1)?.createdAt);
+      updateChatMeta(chatId, {
+        lastMessageAt: msgs.at(-1)?.createdAt,
+        model: settingsDto.model,
+      });
     } catch (e) {
       setError((e as Error).message);
       setChatSettings(null);
@@ -271,6 +335,55 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     void loadChatData(selectedChat);
   }, [selectedChat, loadChatData]);
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      requestAnimationFrame(() => {
+        const top = container.scrollHeight - container.clientHeight;
+        container.scrollTo({
+          top: top > 0 ? top : 0,
+          behavior,
+        });
+      });
+    },
+    [],
+  );
+
+  // когда меняются сообщения / чат
+  useLayoutEffect(() => {
+    if (loadingChat) return;
+
+    const prevLen = prevMessagesLengthRef.current;
+    const currLen = messages.length;
+    const prevChatId = prevChatIdRef.current;
+
+    if (!currLen) {
+      prevMessagesLengthRef.current = currLen;
+      prevChatIdRef.current = selectedChat ?? null;
+      return;
+    }
+
+    // 1) открыт новый чат или только что загрузили историю: прыжок в конец
+    if (prevChatId !== (selectedChat ?? null) || prevLen === 0) {
+      scrollToBottom('auto');
+    }
+    // 2) появились новые сообщения в том же чате: плавный скролл
+    else if (currLen > prevLen) {
+      scrollToBottom('smooth');
+    }
+
+    prevMessagesLengthRef.current = currLen;
+    prevChatIdRef.current = selectedChat ?? null;
+  }, [messages.length, selectedChat, loadingChat, scrollToBottom]);
+
+  // когда открываем диалог переименования – тоже держим низ в фокусе
+  useLayoutEffect(() => {
+    if (!chatTitleDialogOpen) return;
+    scrollToBottom('auto');
+  }, [chatTitleDialogOpen, scrollToBottom]);
+
   useEffect(() => {
     if (!pathname.startsWith('/client')) return;
     if (!selectedChat && chatIdFromRoute) {
@@ -288,10 +401,19 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
         temperature: next.temperature ?? chatSettings?.temperature ?? temperature,
         maxTokens: next.maxTokens ?? chatSettings?.maxTokens ?? maxTokens,
       };
-      await chatApi.saveChatSettings(dto);
+      try {
+        await chatApi.saveChatSettings(dto);
+      } catch (error) {
+        const message = (error as Error).message?.toLowerCase() ?? '';
+        if (!message.includes('cycle')) {
+          throw error;
+        }
+        console.warn('Получена циклическая структура при сохранении настроек чата', error);
+      }
       setChatSettings(dto);
+      updateChatMeta(selectedChat, { model: dto.model ?? null });
     },
-    [chatSettings, currentModel, maxTokens, selectedChat, temperature],
+    [chatSettings, currentModel, maxTokens, selectedChat, temperature, updateChatMeta],
   );
 
   const handleModelChange = async (model: string) => {
@@ -344,7 +466,11 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
         setSelectedChat(chat.id);
         setChatSettings(null);
         setMessages([]);
-        setChatMeta((prev) => ({ ...prev, [chat.id]: undefined }));
+        setChatMeta((prev) => {
+          const next = { ...prev };
+          delete next[chat.id];
+          return next;
+        });
         await refreshChats();
         navigateToChat(chat.id);
         success = true;
@@ -418,7 +544,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     try {
       await chatApi.clearChat(selectedChat);
       setMessages([]);
-      updateChatMeta(selectedChat, undefined);
+      updateChatMeta(selectedChat, { lastMessageAt: undefined });
     } catch (e) {
       setError((e as Error).message);
     }
@@ -466,14 +592,29 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
 
       const updated = await chatApi.getMessages(chatId);
       setMessages(mapMessages(updated));
-      updateChatMeta(chatId, updated.at(-1)?.createdAt);
+      updateChatMeta(chatId, { lastMessageAt: updated.at(-1)?.createdAt });
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSending(false);
     }
   };
- 
+
+  // авто-скролл, когда высота контейнера увеличилась (рендер завершился)
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      // прокрутка в самый низ, если появились новые сообщения
+      scrollToBottom('auto');
+    });
+
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [scrollToBottom]);
+
 
   return (
     <Box
@@ -483,7 +624,8 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
         bgcolor: theme.palette.background.default,
         display: 'flex',
         flexDirection: 'column',
-      })} 
+        overflow: 'hidden',
+      })}
     >
       <ChatSidebar
         open={sidebarOpen}
@@ -517,6 +659,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       <Box
         component="main"
         sx={(theme) => ({
+          position: 'relative',
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -541,26 +684,28 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
             pb: 2,
           }}
         >
-          <Stack
-            spacing={3}
+          <Box
+            ref={scrollContainerRef}
             sx={{
               width: '100%',
               maxWidth: 860,
               px: { xs: 2, md: 0 },
               flexGrow: 1,
-              justifyContent: 'flex-end',
               display: 'flex',
               flexDirection: 'column',
+              overflowY: 'auto',          // только здесь скролл
+              overscrollBehavior: 'contain',
             }}
           >
-           {loadingChat ? (
+            {loadingChat ? (
               <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
                 <CircularProgress />
               </Stack>
             ) : (
               <ChatThread messages={messages} />
             )}
-          </Stack>
+
+          </Box>
 
           <Stack
             sx={{
@@ -570,8 +715,10 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
             }}
           >
             <ChatInput onSend={handleSendMessage} disabled={sending || loadingChat} />
+
           </Stack>
         </Stack>
+        <Box ref={scrollAnchorRef} sx={{ height: 0 }} />
       </Box>
 
       <ModelSettingsPopover
@@ -601,6 +748,11 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
         onClose={() => setChatTitleDialogOpen(false)}
         fullWidth
         maxWidth="xs"
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+          },
+        }}
       >
         <DialogTitle>{dialogMode === 'create' ? 'Новый чат' : 'Переименовать чат'}</DialogTitle>
         <DialogContent>

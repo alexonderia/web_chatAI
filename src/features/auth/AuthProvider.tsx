@@ -32,6 +32,7 @@ interface AuthContextValue {
 
   logout: () => Promise<void>;
   updateLogin: (newLogin: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const USER_STORAGE_KEY = 'chatai_user';
@@ -173,6 +174,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     persistUser(null);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    if (!user) return;
+    await authApi.deleteUser(user.id);
+    setUser(null);
+    setChats([]);
+    persistUser(null);
+  }, [user]);
+
   const updateLogin = useCallback(
     async (newLogin: string) => {
       if (!user) return;
@@ -196,13 +205,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       createChat,
       logout,
       updateLogin,
+      deleteAccount,
     }),
-    [user, chats, initializing, login, register, refreshChats, createChat, logout, updateLogin],
+    [user, chats, initializing, login, register, refreshChats, createChat, logout, updateLogin, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useAuthContext();
 }

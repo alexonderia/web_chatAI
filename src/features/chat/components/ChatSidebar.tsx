@@ -57,9 +57,9 @@ export function ChatSidebar({
   const [logoHovered, setLogoHovered] = useState(false);
 
   const formatLastMessageDate = (value?: string) => {
-    if (!value) return 'Нет сообщений';
+    if (!value) return '';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Нет сообщений';
+    if (Number.isNaN(date.getTime())) return '';
     return date.toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -67,6 +67,15 @@ export function ChatSidebar({
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatSecondary = (chat: ChatSummary) => {
+    const date = formatLastMessageDate(chat.lastMessageAt);
+    const model = chat.model;
+
+    if (!date && !model) return 'Нет сообщений';
+    if (date && model) return `${date} • ${model}`;
+    return date || model || 'Нет сообщений';
   };
 
   const sidebarWidth = useMemo(
@@ -223,7 +232,7 @@ export function ChatSidebar({
                   <ListItemText
                     primary={chat.title}
                     primaryTypographyProps={{ fontWeight: 600 }}
-                    secondary={formatLastMessageDate(chat.lastMessageAt)}
+                    secondary={formatSecondary(chat)}
                     secondaryTypographyProps={{ variant: 'body2' }}
                   />
                   <Stack direction="row" spacing={1} alignItems="center">

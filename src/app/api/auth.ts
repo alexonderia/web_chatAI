@@ -22,8 +22,11 @@ export const authApi = {
     return apiClient.post<AuthResponse>('/WebAPIChatAI/AddUser', payload);
   },
 
-  // используется в AuthProvider.updateLogin
   updateUserLogin(userId: number, login: string) {
-    return apiClient.put<void>(`/WebAPIChatAI/UpdateUser/${userId}`, { login });
+     return apiClient.put<void>(`/WebAPIChatAI/UpdateUser/${userId}`, { id: userId, login });
   },
+
+  deleteUser(userId: number) {
+    return apiClient.delete<void>(`/WebAPIChatAI/DeleteUser/${userId}`);
+  }
 };

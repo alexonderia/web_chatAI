@@ -25,7 +25,20 @@ export class ApiClient {
 
     if (response.status === 204) return undefined as T;
 
-    return response.json() as Promise<T>;
+    const contentLength = response.headers.get('content-length');
+    const contentType = response.headers.get('content-type');
+
+    if (contentLength === '0' || !contentType) {
+      return undefined as T;
+    }
+
+    const rawBody = await response.text();
+    if (!rawBody) {
+      return undefined as T;
+    }
+
+    const isJson = contentType.includes('application/json');
+    return (isJson ? JSON.parse(rawBody) : (rawBody as unknown)) as T;
   }
 
   get<T>(path: string) {

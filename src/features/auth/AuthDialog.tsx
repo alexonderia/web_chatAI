@@ -40,11 +40,43 @@ function AuthDialog({ open, mode, onClose, onModeChange, onAuthenticate }: AuthD
     setSubmitting(true);
     setError(null);
 
-    try {
+     try {
       await onAuthenticate(credentials, mode);
       setCredentials({ login: '', password: '' });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось выполнить запрос');
+      let message = 'Не удалось выполнить запрос';
+
+      if (err instanceof Error) {
+        const raw = err.message || '';
+
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && typeof parsed.error === 'string') {
+            const e = parsed.error;
+
+            if (e === 'Invalid login or password') {
+              message = 'Неправильный логин или пароль';
+            } else if (e === 'User already exists') {
+              message = 'Пользователь с таким логином уже существует';
+            } else {
+              message = e;
+            }
+          } else {
+            message = raw;
+          }
+        } catch {
+          // Если это не JSON, но содержит определённый текст
+          if (raw.includes('Invalid login or password')) {
+            message = 'Неправильный логин или пароль';
+          } else if (raw.includes('User already exists')) {
+            message = 'Пользователь с таким логином уже существует';
+          } else if (raw.trim()) {
+            message = raw;
+          }
+        }
+      }
+
+      setError(message);
     } finally {
       setSubmitting(false);
     }

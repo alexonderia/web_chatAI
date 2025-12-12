@@ -4,6 +4,7 @@ export interface ChatSummary {
   id: number;
   title: string;
   lastMessageAt?: string;
+  model?: string | null;
 }
 
 export interface CreateChatPayload {

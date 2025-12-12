@@ -90,6 +90,7 @@ export function ModelProvider({ children }: ModelProviderProps) {
 }
 
 // Хук для доступа к моделям
+// eslint-disable-next-line react-refresh/only-export-components
 export function useModels() {
   const ctx = useContext(ModelContext);
   if (!ctx) {

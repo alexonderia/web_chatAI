@@ -32,9 +32,11 @@ export function AdvancedSettingsPopover({
   const [localMaxTokens, setLocalMaxTokens] = useState(maxTokens);
 
   useEffect(() => {
+    if (!open) return;
+
     setLocalTemperature(temperature);
     setLocalMaxTokens(maxTokens);
-  }, [temperature, maxTokens]);
+  }, [open, temperature, maxTokens]);
 
 
   const temperatureMarks = [
@@ -131,8 +133,8 @@ export function AdvancedSettingsPopover({
                 size="small"
                 sx={{ textTransform: 'none', color: 'text.primary' }}
                 onClick={() => {
-                  setLocalTemperature(1);
-                  setLocalMaxTokens(512);
+                   setLocalTemperature(temperature);
+                    setLocalMaxTokens(maxTokens);
                 }}
               >
                 Сбросить
