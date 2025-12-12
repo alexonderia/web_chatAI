@@ -10,6 +10,7 @@ interface ChatTopBarProps {
     onOpenModelSettings: (event: MouseEvent<HTMLElement>) => void;
     modelButtonLabel: string;
     onClearChat: () => void;
+    clearDisabled?: boolean;
     rightSlot?: ReactNode;
 }
 
@@ -18,6 +19,7 @@ export function ChatTopBar({
     onOpenModelSettings,
     modelButtonLabel,
     onClearChat,
+    clearDisabled,
     rightSlot,
 }: ChatTopBarProps) {
     return (
@@ -58,6 +60,7 @@ export function ChatTopBar({
                         color="primary"
                         sx={(theme) => ({ textTransform: 'none', fontWeight: 600, color: theme.palette.text.primary })}
                         onClick={onClearChat}
+                        disabled={clearDisabled}
                     >
                         Очистить чат
                     </Button>

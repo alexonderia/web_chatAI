@@ -14,6 +14,9 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import { alpha } from '@mui/material/styles';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import Tooltip from '@mui/material/Tooltip';
 
 import logo from '@/assets/logo.svg';
 import { ChatSummary } from '@/app/api/chat';
@@ -28,6 +31,11 @@ type ChatSidebarProps = {
   onToggle: () => void;
   onOpenSettings: () => void;
   onCreateChat: () => void;
+  onRenameChat: (chat: ChatSummary) => void;
+  onDeleteChat: (chat: ChatSummary) => void;
+  onDeleteAllChats: () => void;
+  deletingChatId?: number | null;
+  deletingAll?: boolean;
 };
 
 export function ChatSidebar({
@@ -40,8 +48,26 @@ export function ChatSidebar({
   onToggle,
   onOpenSettings,
   onCreateChat,
+  onRenameChat,
+  onDeleteChat,
+  onDeleteAllChats,
+  deletingChatId,
+  deletingAll,
 }: ChatSidebarProps) {
   const [logoHovered, setLogoHovered] = useState(false);
+
+  const formatLastMessageDate = (value?: string) => {
+    if (!value) return 'Нет сообщений';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Нет сообщений';
+    return date.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   const sidebarWidth = useMemo(
     () => (open ? drawerWidth : collapsedWidth),
@@ -154,8 +180,10 @@ export function ChatSidebar({
                   backgroundColor: 'transparent',
                 },
               })}
+              onClick={onDeleteAllChats}
+              disabled={deletingAll}
             >
-              Очистить всё
+              Удалить все
             </Button>
           </Stack>
 
@@ -192,7 +220,41 @@ export function ChatSidebar({
                     },
                   })}
                 >
-                  <ListItemText primary={chat.title} primaryTypographyProps={{ fontWeight: 600 }} />
+                  <ListItemText
+                    primary={chat.title}
+                    primaryTypographyProps={{ fontWeight: 600 }}
+                    secondary={formatLastMessageDate(chat.lastMessageAt)}
+                    secondaryTypographyProps={{ variant: 'body2' }}
+                  />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Tooltip title="Переименовать">
+                      <IconButton
+                        size="small"
+                        edge="end"
+                        aria-label="rename chat"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRenameChat(chat);
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Удалить">
+                      <IconButton
+                        size="small"
+                        edge="end"
+                        aria-label="delete chat"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteChat(chat);
+                        }}
+                        disabled={deletingChatId === chat.id || deletingAll}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 </ListItemButton>
               </ListItem>
             ))}

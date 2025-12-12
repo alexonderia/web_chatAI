@@ -3,6 +3,7 @@ import { apiClient } from './client';
 export interface ChatSummary {
   id: number;
   title: string;
+  lastMessageAt?: string;
 }
 
 export interface CreateChatPayload {
@@ -56,11 +57,28 @@ export const chatApi = {
     return apiClient.get<ChatMessageDto[]>(`/Chat/${chatId}/messages`);
   },
 
-  sendMessage(payload: { chatId: number; userId: number; text: string; base64Images?: string[] }) {
+  sendMessage(payload: { chatId: number; userId: number; text: string; base64Images: string[] }) {
     return apiClient.post('/Chat/send', payload);
   },
 
   createChat(payload = {}) {
     return apiClient.post<ChatSummary>('/Chat', payload);
-  }
+  },
+
+  renameChat(chatId: number, title: string) {
+    return apiClient.put(`/Chat/${chatId}/rename`, { title });
+  },
+
+  deleteChat(chatId: number) {
+    return apiClient.delete(`/Chat/${chatId}`);
+  },
+
+  clearChat(chatId: number) {
+    return apiClient.post(`/Chat/${chatId}/clear`);
+  },
 };
+
+export async function deleteAllUserChats(userId: number) {
+  const userChats = await chatApi.getUserChats(userId);
+  await Promise.all(userChats.map((chat) => chatApi.deleteChat(chat.id)));
+}

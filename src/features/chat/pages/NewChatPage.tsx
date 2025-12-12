@@ -3,6 +3,12 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 
 import { UserSettingsDialog } from '@/features/settings/UserSettingsDialog';
 import { ChatSidebar } from '@/features/chat/components/ChatSidebar';
@@ -14,10 +20,9 @@ import { ModelSettingsPopover } from '@/features/chat/components/ModelSettingsPo
 import { ChatMessage, MessageRole } from '@/features/chat/components/ChatMessageCard';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useSimpleRouter } from '@/app/router/SimpleRouter';
-import { chatApi, ChatMessageDto, ChatSettingsDto } from '@/app/api/chat';
+import { chatApi, ChatMessageDto, ChatSettingsDto, deleteAllUserChats, ChatSummary } from '@/app/api/chat';
 import { useSettings } from '@/features/settings/SettingsProvider';
 import { useModels } from '@/features/ai/ModelProvider';
-import { aiApi } from '@/app/api/ai';
 
 const drawerWidth = 320;
 const collapsedWidth = 84;
@@ -144,6 +149,13 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<number>(1);
   const [maxTokens, setMaxTokens] = useState<number>(512);
+  const [chatMeta, setChatMeta] = useState<Record<number, string | undefined>>({});
+  const [chatTitleDialogOpen, setChatTitleDialogOpen] = useState(false);
+  const [chatTitleValue, setChatTitleValue] = useState('');
+  const [chatForAction, setChatForAction] = useState<ChatSummary | null>(null);
+  const [dialogMode, setDialogMode] = useState<'create' | 'rename'>('create');
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
 
   const advancedOpen = Boolean(advancedSettingsAnchor);
   
@@ -161,6 +173,11 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       null
     );
   }, [chatSettings?.model, models, settings?.defaultModel, settings?.model]);
+
+  const chatsWithMeta = useMemo(
+    () => chats.map((chat) => ({ ...chat, lastMessageAt: chatMeta[chat.id] ?? chat.lastMessageAt })),
+    [chatMeta, chats],
+  );
 
   useEffect(() => {
     if (fallbackModel) {
@@ -193,7 +210,9 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
 
   const handleCloseAdvancedSettings = () => setAdvancedSettingsAnchor(null);
 
-  const handleClearChat = () => setMessages([]);
+  const updateChatMeta = useCallback((chatId: number, lastMessageAt?: string) => {
+    setChatMeta((prev) => ({ ...prev, [chatId]: lastMessageAt }));
+  }, []);
   
   const navigateToChat = useCallback(
     (chatId: number | null) => {
@@ -233,6 +252,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       ]);
       setChatSettings(settingsDto);
       setMessages(mapMessages(msgs));
+      updateChatMeta(chatId, msgs.at(-1)?.createdAt);
     } catch (e) {
       setError((e as Error).message);
       setChatSettings(null);
@@ -240,7 +260,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     } finally {
       setLoadingChat(false);
     }
-  }, []);
+  }, [updateChatMeta]);
 
   useEffect(() => {
     if (!selectedChat) {
@@ -299,10 +319,10 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   };
 
   const handleStartNewChat = () => {
-    setSelectedChat(null);
-    setChatSettings(null);
-    setMessages([]);
-    navigateToChat(null);
+    setChatForAction(null);
+    setDialogMode('create');
+    setChatTitleValue('');
+    setChatTitleDialogOpen(true);
   };
 
   const handleSelectChat = (id: number) => {
@@ -310,10 +330,108 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
     navigateToChat(id);
   };
 
-  const handleSendMessage = async (text: string) => {
+  const handleSubmitChatTitle = async () => {
     if (!user) return;
+    const trimmedTitle = chatTitleValue.trim();
     setSending(true);
     setError(null);
+    let success = false;
+
+    try {
+      if (dialogMode === 'create') {
+        const chat = await createChat(trimmedTitle || 'Новый чат');
+        if (!chat) return;
+        setSelectedChat(chat.id);
+        setChatSettings(null);
+        setMessages([]);
+        setChatMeta((prev) => ({ ...prev, [chat.id]: undefined }));
+        await refreshChats();
+        navigateToChat(chat.id);
+        success = true;
+      } else if (chatForAction) {
+        const nextTitle = trimmedTitle || chatForAction.title;
+        await chatApi.renameChat(chatForAction.id, nextTitle);
+        await refreshChats();
+        setChatForAction((prev) => (prev ? { ...prev, title: nextTitle } : prev));
+        success = true;
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+      if (success) {
+        setChatTitleDialogOpen(false);
+      }
+    }
+  };
+
+  const handleRequestRename = (chat: ChatSummary) => {
+    setChatForAction(chat);
+    setDialogMode('rename');
+    setChatTitleValue(chat.title);
+    setChatTitleDialogOpen(true);
+  };
+
+  const handleDeleteChat = async (chatId: number) => {
+    if (!user) return;
+    if (!window.confirm('Удалить чат?')) return;
+    setDeletingChatId(chatId);
+    setError(null);
+    try {
+      await chatApi.deleteChat(chatId);
+      if (selectedChat === chatId) {
+        setSelectedChat(null);
+        setMessages([]);
+        setChatSettings(null);
+        navigateToChat(null);
+      }
+      await refreshChats();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeletingChatId(null);
+    }
+  };
+
+  const handleDeleteAllChats = async () => {
+    if (!user) return;
+    if (!window.confirm('Удалить все чаты?')) return;
+    setBulkDeleting(true);
+    setError(null);
+    try {
+      await deleteAllUserChats(user.id);
+      setSelectedChat(null);
+      setMessages([]);
+      setChatSettings(null);
+      await refreshChats();
+      navigateToChat(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!selectedChat) return;
+    setError(null);
+    try {
+      await chatApi.clearChat(selectedChat);
+      setMessages([]);
+      updateChatMeta(selectedChat, undefined);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const handleSendMessage = async (payload: { text: string; images: string[] }) => {
+    if (!user) return;
+    const { text, images } = payload;
+    setSending(true);
+    setError(null);
+    const imagePreviews = images.map((src) =>
+      src.startsWith('data:') ? src : `data:image/png;base64,${src}`,
+    );
 
     try {
       let chatId = selectedChat;
@@ -328,37 +446,27 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
 
       if (!chatId) return;
 
-      const model = currentModel ?? fallbackModel;
-      const nextTemperature = temperature ?? settings?.temperature ?? 1;
-      const nextMaxTokens = maxTokens ?? settings?.maxTokens ?? 512;
-
       setMessages((prev) => [
         ...prev,
-        { id: `local-${Date.now()}`, role: 'user', author: 'Вы', content: text },
+        {
+          id: `local-${Date.now()}`,
+          role: 'user',
+          author: 'Вы',
+          content: text,
+          images: imagePreviews,
+        },
       ]);
 
-      await chatApi.sendMessage({ chatId, userId: user.id, text });
-
-      if (model) {
-        await aiApi.sendChatMessage({
-          chatId,
-          userId: user.id,
-          text,
-          model,
-          temperature: nextTemperature,
-          maxTokens: nextMaxTokens,
-        });
-      }
+      await chatApi.sendMessage({
+        chatId,
+        userId: user.id,
+        text,
+        base64Images: images.length ? images : [],
+      });
 
       const updated = await chatApi.getMessages(chatId);
       setMessages(mapMessages(updated));
-      setChatSettings((prev) => ({
-        id: prev?.id ?? chatSettings?.id ?? 0,
-        chatId,
-        model: model ?? prev?.model ?? null,
-        temperature: nextTemperature,
-        maxTokens: nextMaxTokens,
-      }));
+      updateChatMeta(chatId, updated.at(-1)?.createdAt);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -381,18 +489,24 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
         open={sidebarOpen}
         drawerWidth={drawerWidth}
         collapsedWidth={collapsedWidth}
-        chats={chats}
+        chats={chatsWithMeta}
         selectedChat={selectedChat}
         onSelectChat={handleSelectChat}
         onToggle={() => setSidebarOpen((prev) => !prev)}
         onOpenSettings={() => setSettingsOpen(true)}
         onCreateChat={handleStartNewChat}
+        onRenameChat={handleRequestRename}
+        onDeleteChat={(chat) => handleDeleteChat(chat.id)}
+        onDeleteAllChats={handleDeleteAllChats}
+        deletingChatId={deletingChatId}
+        deletingAll={bulkDeleting}
       />
       <ChatTopBar
         sidebarWidth={sidebarWidth}
         onOpenModelSettings={handleOpenModelSettings}
         modelButtonLabel={currentModel ?? 'Выберите модель'}
         onClearChat={handleClearChat}
+        clearDisabled={!selectedChat || sending || loadingChat}
         rightSlot={error ? (
           <Typography color="error" variant="body2">
             {error}
@@ -481,6 +595,33 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       />
 
       <UserSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <Dialog
+        open={chatTitleDialogOpen}
+        onClose={() => setChatTitleDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>{dialogMode === 'create' ? 'Новый чат' : 'Переименовать чат'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Название чата"
+            value={chatTitleValue}
+            onChange={(event) => setChatTitleValue(event.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChatTitleDialogOpen(false)} disabled={sending}>
+            Отмена
+          </Button>
+          <Button onClick={handleSubmitChatTitle} variant="contained" disabled={sending}>
+            Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

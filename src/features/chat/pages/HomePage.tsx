@@ -15,6 +15,11 @@ function HomePage() {
   const { navigate } = useSimpleRouter();
   const { login, register } = useAuth();
 
+  const handleHeroSend = () => {
+    setAuthMode('login');
+    setAuthOpen(true);
+  };
+
   const handleOpenAuth = (mode: AuthMode) => {
     setAuthMode(mode);
     setAuthOpen(true);
@@ -45,7 +50,7 @@ function HomePage() {
         component="main"
         sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
       >
-        <HeroSection />
+        <HeroSection onSend={handleHeroSend} />
       </Container>
 
       <AuthDialog

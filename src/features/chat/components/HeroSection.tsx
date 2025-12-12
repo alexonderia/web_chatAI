@@ -2,7 +2,11 @@ import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import { ChatInput } from './ChatInput';
 
-function HeroSection() {
+interface HeroSectionProps {
+  onSend?: (payload: { text: string; images: string[] }) => void;
+}
+
+function HeroSection({ onSend }: HeroSectionProps) {
   return (
     <Stack
       component="section"
@@ -19,7 +23,7 @@ function HeroSection() {
         Чем помочь?
       </Typography>
       
-      <ChatInput maxWidth={720} />
+      <ChatInput maxWidth={720} onSend={onSend} />
     </Stack>
   );
 }
