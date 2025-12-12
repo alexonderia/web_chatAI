@@ -2,7 +2,7 @@ import { apiClient } from './client';
 
 // то, что хранится в БД + пара опциональных полей под UI
 export interface UserSettingsDto {
-  themeMode: 'light' | 'dark';
+  themeMode?: 'light' | 'dark';
   model: string | null;
   temperature: number;
   maxTokens: number;

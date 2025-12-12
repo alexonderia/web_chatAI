@@ -23,8 +23,8 @@ type ChatSidebarProps = {
   drawerWidth: number;
   collapsedWidth: number;
   chats: ChatSummary[];
-  selectedChat: string | null;
-  onSelectChat: (id: string) => void;
+  selectedChat: number | null;
+  onSelectChat: (id: number) => void;
   onToggle: () => void;
   onOpenSettings: () => void;
   onCreateChat: () => void;

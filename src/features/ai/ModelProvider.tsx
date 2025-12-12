@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { aiApi, AiModel } from '@/app/api/ai';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useSettings } from '@/features/settings/SettingsProvider';
 
 type ModelContextValue = {
   models: AiModel[];
@@ -28,6 +29,7 @@ interface ModelProviderProps {
 
 export function ModelProvider({ children }: ModelProviderProps) {
   const { user } = useAuth();
+  const { settings } = useSettings();
   const [models, setModels] = useState<AiModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +60,13 @@ export function ModelProvider({ children }: ModelProviderProps) {
     }
   }, [user?.model]);
 
+  // если в пользовательских настройках указана модель
+  useEffect(() => {
+    if (settings?.model) {
+      setSelectedModel(settings.model);
+    }
+  }, [settings?.model]);
+  
   // Если пользовательская модель не установлена — выбрать первую доступную
   useEffect(() => {
     if (!selectedModel && models.length > 0) {

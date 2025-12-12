@@ -1,6 +1,7 @@
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -16,6 +17,8 @@ export interface ChatMessage {
   role: MessageRole;
   author: string;
   content: string;
+  messageType?: 'text' | 'image' | string;
+  images?: string[];
   timestamp?: string;
 }
 
@@ -51,13 +54,42 @@ export function ChatMessageCard({ message }: ChatMessageCardProps) {
           };
         }}
       >
-        <Typography variant="body1" sx={{
-          whiteSpace: 'pre-line',
-          overflowWrap: 'anywhere',   
-          wordBreak: 'break-word',    
-        }}>
-          {message.content}
-        </Typography>
+        <Stack spacing={2}>
+          {message.content && (
+            <Typography
+              variant="body1"
+              sx={{
+                whiteSpace: 'pre-line',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+              }}
+            >
+              {message.content}
+            </Typography>
+          )}
+
+          {message.images?.length ? (
+            <Stack direction="row" spacing={2} flexWrap="wrap">
+              {message.images.map((src, idx) => (
+                <Box
+                  key={`${message.id}-image-${idx}`}
+                  component="img"
+                  src={src}
+                  alt={message.author}
+                  sx={{
+                    maxWidth: 320,
+                    maxHeight: 320,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: (theme) => theme.palette.divider,
+                    objectFit: 'contain',
+                    backgroundColor: (theme) => theme.palette.background.paper,
+                  }}
+                />
+              ))}
+            </Stack>
+          ) : null}
+        </Stack>
       </Paper>
       {isAssistant && (
         <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 0.5 }}>

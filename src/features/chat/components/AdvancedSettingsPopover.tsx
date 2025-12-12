@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Popover from '@mui/material/Popover';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -15,15 +15,27 @@ interface AdvancedSettingsPopoverProps {
   anchorEl: HTMLElement | null;
   open: boolean;
   onClose: () => void;
+  temperature: number;
+  maxTokens: number;
+  onSave: (settings: { temperature: number; maxTokens: number }) => void;
 }
 
 export function AdvancedSettingsPopover({
   anchorEl,
   open,
   onClose,
+  temperature,
+  maxTokens,
+  onSave,
 }: AdvancedSettingsPopoverProps) {
-  const [temperature, setTemperature] = useState(1);
-  const [maxTokens, setMaxTokens] = useState(512);
+  const [localTemperature, setLocalTemperature] = useState(temperature);
+  const [localMaxTokens, setLocalMaxTokens] = useState(maxTokens);
+
+  useEffect(() => {
+    setLocalTemperature(temperature);
+    setLocalMaxTokens(maxTokens);
+  }, [temperature, maxTokens]);
+
 
   const temperatureMarks = [
     { value: 0, label: '0' },
@@ -88,10 +100,10 @@ export function AdvancedSettingsPopover({
               min={0}
               max={2}
               step={0.1}
-              value={temperature}
+              value={localTemperature}
               marks={temperatureMarks}
               valueLabelDisplay="auto"
-              onChange={(_, value) => setTemperature(value as number)}
+              onChange={(_, value) => setLocalTemperature(value as number)}
             />
 
             <Stack spacing={1}>
@@ -99,8 +111,8 @@ export function AdvancedSettingsPopover({
                 Максимальная длина ответа
               </Typography>
               <InputBase
-                value={maxTokens}
-                onChange={(e) => setMaxTokens(Number(e.target.value) || 0)}
+                value={localMaxTokens}
+                onChange={(e) => setLocalMaxTokens(Number(e.target.value) || 0)}
                 sx={{
                   px: 1.5,
                   py: 1,
@@ -119,13 +131,17 @@ export function AdvancedSettingsPopover({
                 size="small"
                 sx={{ textTransform: 'none', color: 'text.primary' }}
                 onClick={() => {
-                  setTemperature(1);
-                  setMaxTokens(512);
+                  setLocalTemperature(1);
+                  setLocalMaxTokens(512);
                 }}
               >
                 Сбросить
               </Button>
-              <Button variant="contained" size="small">
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => onSave({ temperature: localTemperature, maxTokens: localMaxTokens })}
+              >
                 Сохранить
               </Button>
             </Stack>

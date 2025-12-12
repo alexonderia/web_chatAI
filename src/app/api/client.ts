@@ -7,7 +7,7 @@ function buildUrl(path: string) {
 
 export class ApiClient {
 
-  async request<T>(path: string, options: RequestInit = {}) {
+  async request<T>(path: string, options: globalThis.RequestInit = {}) {
     const headers = new Headers(options.headers || {});
     if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');

@@ -8,6 +8,13 @@ function AppRoutes() {
   if (pathname.startsWith('/client/newChat')) {
     return <NewChatPage />;
   }
+
+  const chatMatch = pathname.match(/^\/client\/chat\/(\d+)/);
+  if (chatMatch) {
+    const chatId = Number(chatMatch[1]);
+    return <NewChatPage chatIdFromRoute={chatId} />;
+  }
+  
   return <HomePage />;
 }
 

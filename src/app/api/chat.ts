@@ -1,25 +1,59 @@
 import { apiClient } from './client';
 
 export interface ChatSummary {
-  id: string;
+  id: number;
   title: string;
 }
 
 export interface CreateChatPayload {
   title?: string;
+  userId?: number;
+}
+
+export interface ChatSettingsDto {
+  id: number;
+  chatId: number;
+  model: string | null;
+  temperature: number;
+  maxTokens: number;
+}
+
+export interface ChatMessageDto {
+  id: number | string;
+  text?: string;
+  content?: string;
+  role?: 'user' | 'assistant' | number | string;
+  author?: string;
+  userLogin?: string;
+  createdAt?: string;
+  isAi?: boolean;
+  isAI?: boolean;
+  messageType?: 'text' | 'image' | string;
+  type?: string;
+  imageUrl?: string;
+  imageUrls?: string[];
+  base64Image?: string;
+  base64Images?: string[];
+  imageBlob?: string;
+  imageBlobs?: string[];
+  images?: (string | { imageBlob?: string; base64Image?: string; imageUrl?: string; url?: string })[];
 }
 
 export const chatApi = {
-  getChatSettings(chatId: number) {
-    return apiClient.get(`/Chat/getChatSettings/${chatId}`);
+  getUserChats(userId: number) {
+    return apiClient.get<ChatSummary[]>(`/Chat/user/${userId}/chats`);
   },
 
-  saveChatSettings(dto: any) {
+  getChatSettings(chatId: number) {
+    return apiClient.get<ChatSettingsDto>(`/Chat/getChatSettings/${chatId}`);
+  },
+
+  saveChatSettings(dto: ChatSettingsDto) {
     return apiClient.post('/Chat/chat/saveChatSettings', dto);
   },
 
   getMessages(chatId: number) {
-    return apiClient.get(`/Chat/${chatId}/messages`);
+    return apiClient.get<ChatMessageDto[]>(`/Chat/${chatId}/messages`);
   },
 
   sendMessage(payload: { chatId: number; userId: number; text: string; base64Images?: string[] }) {
@@ -27,6 +61,6 @@ export const chatApi = {
   },
 
   createChat(payload = {}) {
-    return apiClient.post('/Chat', payload);
+    return apiClient.post<ChatSummary>('/Chat', payload);
   }
 };

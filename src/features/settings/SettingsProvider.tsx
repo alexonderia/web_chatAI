@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { settingsApi, UserSettingsDto } from '@/app/api/settings';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { aiApi } from '@/app/api/ai';
 
 type SettingsContextValue = {
   settings: UserSettingsDto | null;
@@ -44,10 +45,17 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     setError(null);
     try {
       const data = await settingsApi.getUserSettings(user.id);
-        if (!data.model && models.length > 0) {
-        data.model = models[0].name;
+        let model = data.model ?? data.defaultModel ?? null;
+
+      if (!model) {
+        try {
+          const models = await aiApi.getModels();
+          model = models[0]?.name ?? null;
+        } catch (err) {
+          console.error('Не удалось загрузить список моделей', err);
+        }
       }
-      setSettings(data);
+      setSettings({ ...data, model });
       setDirty(false);
     } catch (e) {
       setError((e as Error).message);
@@ -82,7 +90,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, [user, settings, dirty]);
+  }, [dirty, settings, user]);
 
   const value = useMemo<SettingsContextValue>(
     () => ({

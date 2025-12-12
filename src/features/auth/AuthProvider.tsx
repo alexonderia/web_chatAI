@@ -10,6 +10,8 @@ import {
 } from 'react';
 import { authApi, AuthPayload } from '@/app/api/auth';
 import { chatApi, ChatSummary } from '@/app/api/chat';
+import { aiApi } from '@/app/api/ai';
+import { settingsApi } from '@/app/api/settings';
 
 interface User {
   id: number;
@@ -122,10 +124,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async (payload: AuthPayload) => {
       const res = await authApi.register(payload);
 
+      let defaultModel: string | null = null;
+      try {
+        const models = await aiApi.getModels();
+        defaultModel = models[0]?.name ?? null;
+        if (defaultModel) {
+          await settingsApi.saveUserSettings({
+            userId: res.id,
+            model: defaultModel,
+            temperature: 1,
+            maxTokens: 1024,
+          });
+        }
+      } catch (e) {
+        console.error('Не удалось сохранить настройки модели по умолчанию', e);
+      }
+
       const nextUser: User = {
         id: res.id,
         login: res.login,
-        model: null,
+        model: defaultModel,
         modelChanged: false,
       };
 
@@ -137,8 +155,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const createChat = useCallback(async (title?: string) => {
+    if (!user) return null;
     try {
-      const chat = await chatApi.createChat({ title });
+      const chat = await chatApi.createChat({ title, userId: user.id });
       if (!chat) return null;
       setChats((prev) => [chat, ...prev]);
       return chat;
@@ -146,7 +165,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Не удалось создать чат', e);
       return null;
     }
-  }, []);
+  }, [user]);
 
   const logout = useCallback(async () => {
     setUser(null);

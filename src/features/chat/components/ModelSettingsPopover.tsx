@@ -9,15 +9,15 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-
-export type ModelId = 'model-1' | 'model-2' | 'model-3';
+import { AiModel } from '@/app/api/ai';
 
 interface ModelSettingsPopoverProps {
   anchorEl: HTMLElement | null;
   open: boolean;
   onClose: () => void;
-  model: ModelId;
-  onModelChange: (model: ModelId) => void;
+  model: string | null;
+  models: AiModel[];
+  onModelChange: (model: string) => void;
   onOpenAdvanced: (anchor: HTMLElement) => void;
   advancedOpen: boolean;
 }
@@ -27,11 +27,12 @@ export function ModelSettingsPopover({
   open,
   onClose,
   model,
+  models,
   onModelChange,
   onOpenAdvanced,
   advancedOpen,
 }: ModelSettingsPopoverProps) {
-  const handleSelectModel = (id: ModelId) => {
+  const handleSelectModel = (id: string) => {
     onModelChange(id);
     onClose();
   };
@@ -66,18 +67,14 @@ export function ModelSettingsPopover({
         <CardContent>
           <Stack spacing={2}>
             <Stack spacing={0.5}>
-              {[
-                { id: 'model-1' as ModelId, label: 'Текущая модель' },
-                { id: 'model-2' as ModelId, label: 'Модель 2' },
-                { id: 'model-3' as ModelId, label: 'Модель 3' },
-              ].map(({ id, label }) => {
-                const selected = model === id;
+              {models.map(({ name, displayName }) => {
+                const selected = model === name;
                 return (
                   <Button
-                    key={id}
+                    key={name}
                     fullWidth
                     variant="text"
-                    onClick={() => handleSelectModel(id)}
+                    onClick={() => handleSelectModel(name)}
                     sx={{
                       justifyContent: 'space-between',
                       borderRadius: 999,
@@ -91,7 +88,7 @@ export function ModelSettingsPopover({
                       },
                     }}
                   >
-                    {label}
+                    {displayName ?? name}
                     {selected && <CheckIcon fontSize="small" />}
                   </Button>
                 );
