@@ -2,12 +2,16 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
+import Switch from '@mui/material/Switch';
 import { UserSettingsDialog } from '@/features/settings/UserSettingsDialog';
 import { ChatSidebar } from '@/features/chat/components/ChatSidebar';
 import { ChatTopBar } from '@/features/chat/components/ChatTopBar';
@@ -39,14 +43,18 @@ export function ChatPage(props: Parameters<typeof useChatPage>[0]) {
     chatTitleDialogOpen,
     chatTitleValue,
     dialogMode,
+    createIncognito,
+    incognitoLocked,
     deletingChatId,
     bulkDeleting,
     temperature,
     maxTokens,
+    isIncognito,
     scrollAnchorRef,
     scrollContainerRef,
     setChatTitleDialogOpen,
     setChatTitleValue,
+    setCreateIncognito,
     setSettingsOpen,
     handleOpenModelSettings,
     handleCloseModelSettings,
@@ -63,6 +71,19 @@ export function ChatPage(props: Parameters<typeof useChatPage>[0]) {
     handleClearChat,
     handleSendMessage,
   } = useChatPage(props);
+
+  const topBarRightSlot = (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {isIncognito && !error ? (
+        <Chip label="Инкогнито" color="warning" size="small" variant="outlined" />
+      ) : null}
+      {error ? (
+        <Typography color="error" variant="body2">
+          {error}
+        </Typography>
+      ) : null}
+    </Stack>
+  );
 
   return (
     <Box
@@ -97,11 +118,7 @@ export function ChatPage(props: Parameters<typeof useChatPage>[0]) {
         modelButtonLabel={currentModel ?? 'Выберите модель'}
         onClearChat={handleClearChat}
         clearDisabled={!selectedChat || sending || loadingChat}
-        rightSlot={error ? (
-          <Typography color="error" variant="body2">
-            {error}
-          </Typography>
-        ) : null}
+        rightSlot={topBarRightSlot}
       />
 
       <Box
@@ -208,6 +225,23 @@ export function ChatPage(props: Parameters<typeof useChatPage>[0]) {
             onChange={(event) => setChatTitleValue(event.target.value)}
             sx={{ mt: 1 }}
           />
+          {dialogMode === 'create' ? (
+            <Stack direction="column" spacing={0.5} sx={{ mt: 2 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={createIncognito}
+                    onChange={(event) => setCreateIncognito(event.target.checked)}
+                    disabled={incognitoLocked}
+                  />
+                }
+                label="Создать инкогнито чат"
+              />
+              <FormHelperText sx={{ ml: 1.5 }}>
+                Сообщения инкогнито-чата не сохраняются и будут недоступны после закрытия.
+              </FormHelperText>
+            </Stack>
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setChatTitleDialogOpen(false)} disabled={sending}>

@@ -10,6 +10,7 @@ export interface ChatSummary {
 export interface CreateChatPayload {
   title?: string;
   userId?: number;
+  isIncognito?: boolean;
 }
 
 export interface ChatSettingsDto {

@@ -28,7 +28,7 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   const { models, reloadModels } = useModels();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedChat, setSelectedChat] = useState<number | null>(chatIdFromRoute);
+  const [selectedChat, setSelectedChat] = useState<number | null>(chatIdFromRoute ?? null);
   const [modelSettingsAnchor, setModelSettingsAnchor] = useState<HTMLElement | null>(null);
   const [advancedSettingsAnchor, setAdvancedSettingsAnchor] = useState<HTMLElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -47,6 +47,9 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   const [dialogMode, setDialogMode] = useState<'create' | 'rename'>('create');
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
+  const [createIncognito, setCreateIncognito] = useState<boolean>(false);
+  const [incognitoChatId, setIncognitoChatId] = useState<number | null>(null);
+  const [incognitoChat, setIncognitoChat] = useState<ChatSummary | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -65,21 +68,61 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
     [chatSettings?.model, models, settings?.defaultModel, settings?.model],
   );
 
-  const chatsWithMeta = useMemo(
-    () =>
-      chats.map((chat) => ({
-        ...chat,
-        lastMessageAt: chatMeta[chat.id]?.lastMessageAt ?? chat.lastMessageAt,
-        model: chatMeta[chat.id]?.model ?? chat.model ?? null,
-      })),
-    [chatMeta, chats],
+  const incognitoChatWithMeta = useMemo(() => {
+    if (!incognitoChat) return null;
+
+    return {
+      ...incognitoChat,
+      lastMessageAt: chatMeta[incognitoChat.id]?.lastMessageAt ?? incognitoChat.lastMessageAt,
+      model: chatMeta[incognitoChat.id]?.model ?? incognitoChat.model ?? null,
+    };
+  }, [chatMeta, incognitoChat]);
+
+  const chatsWithMeta = useMemo(() => {
+    const mapped = chats.map((chat) => ({
+      ...chat,
+      lastMessageAt: chatMeta[chat.id]?.lastMessageAt ?? chat.lastMessageAt,
+      model: chatMeta[chat.id]?.model ?? chat.model ?? null,
+    }));
+
+    if (!incognitoChatWithMeta) return mapped;
+
+    if (mapped.some((chat) => chat.id === incognitoChatWithMeta.id)) return mapped;
+
+    return [incognitoChatWithMeta, ...mapped];
+  }, [chatMeta, chats, incognitoChatWithMeta]);
+
+  const selectedChatIsIncognito = useMemo(
+    () => (selectedChat !== null ? selectedChat === incognitoChatId : false),
+    [incognitoChatId, selectedChat],
   );
+
+  useEffect(() => {
+    if (user) return;
+
+    setIncognitoChatId(null);
+    setIncognitoChat(null);
+    setSelectedChat(null);
+    setMessages([]);
+    setChatSettings(null);
+    chatCacheRef.current = {};
+    setCreateIncognito(false);
+    setChatMeta({});
+  }, [user]);
 
   const updateChatMeta = useCallback((chatId: number, meta: ChatMeta) => {
     setChatMeta((prev) => ({
       ...prev,
       [chatId]: { ...prev[chatId], ...meta },
     }));
+  }, []);
+
+  const resetChatMeta = useCallback((chatId: number) => {
+    setChatMeta((prev) => {
+      const next = { ...prev };
+      delete next[chatId];
+      return next;
+    });
   }, []);
 
   const navigateToChat = useCallback(
@@ -119,6 +162,40 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
     });
   }, [refreshChats, user]);
 
+  const createIncognitoChat = useCallback(
+    async (title?: string) => {
+      if (!user) {
+        setError('Авторизуйтесь, чтобы создать инкогнито-чат');
+        return null;
+      }
+      setLoadingChat(true);
+      setError(null);
+      try {
+        const chat = await chatApi.createChat({
+          title: title || 'Инкогнито чат',
+          userId: user.id,
+          isIncognito: true,
+        });
+        if (!chat) return null;
+
+        setIncognitoChatId(chat.id);
+        setIncognitoChat(chat);
+        setSelectedChat(chat.id);
+        setChatSettings(null);
+        setMessages([]);
+        chatCacheRef.current[chat.id] = { messages: [], settings: null };
+        resetChatMeta(chat.id);
+        return chat;
+      } catch (e) {
+        setError((e as Error).message);
+        return null;
+      } finally {
+        setLoadingChat(false);
+      }
+    },
+    [resetChatMeta, user],
+  );
+
   useEffect(() => {
     if (!initializing && user && !initialDataLoadedRef.current) {
       initialDataLoadedRef.current = true;
@@ -127,13 +204,13 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   }, [initializing, loadInitialChats, user]);
 
   useEffect(() => {
-    if (!initializing && user && !initialModelsLoadedRef.current) {
+    if (!initializing && (user || incognitoChatId) && !initialModelsLoadedRef.current) {
       initialModelsLoadedRef.current = true;
       void reloadModels().catch((err) => {
         console.error('Не удалось загрузить список моделей', err);
       });
     }
-  }, [initializing, reloadModels, user]);
+  }, [incognitoChatId, initializing, reloadModels, user]);
 
   useEffect(() => {
     if (fallbackModel) {
@@ -176,7 +253,7 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
     if (!initializing && !user) {
       navigate('/');
     }
-  }, [user, initializing, navigate]);
+  }, [initializing, navigate, user]);
 
   const applyChatData = useCallback(
     (chatId: number, settingsDto: ChatSettingsDto | null, msgs: ChatMessage[]) => {
@@ -192,6 +269,14 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
       const cached = chatCacheRef.current[chatId];
       setLoadingChat(true);
       setError(null);
+
+      if (chatId === incognitoChatId) {
+        applyChatData(chatId, null, cached?.messages ?? []);
+        setLoadingChat(false);
+        return;
+      }
+
+
       if (cached) {
         applyChatData(chatId, cached.settings, cached.messages);
         setLoadingChat(false);
@@ -214,18 +299,18 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
         setLoadingChat(false);
       }
     },
-    [applyChatData, updateChatMeta],
+    [applyChatData, incognitoChatId, updateChatMeta],
   );
 
   useEffect(() => {
-    if (!user) return;
+    if (!user && selectedChat !== incognitoChatId) return;
     if (!selectedChat) {
       setChatSettings(null);
       setMessages([]);
       return;
     }
     void loadChatData(selectedChat);
-  }, [user, selectedChat, loadChatData]);
+  }, [incognitoChatId, loadChatData, selectedChat, user]);
 
   useEffect(() => {
     if (!pathname.startsWith('/client')) return;
@@ -292,7 +377,7 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
 
   const persistChatSettings = useCallback(
     async (next: Partial<ChatSettingsDto>) => {
-      if (!selectedChat) return;
+      if (!selectedChat || selectedChatIsIncognito) return;
       const dto: ChatSettingsDto = {
         id: chatSettings?.id ?? 0,
         chatId: selectedChat,
@@ -313,7 +398,7 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
       chatCacheRef.current[selectedChat] = { ...chatCacheRef.current[selectedChat], settings: dto };
       updateChatMeta(selectedChat, { model: dto.model ?? null });
     },
-    [chatSettings, currentModel, maxTokens, selectedChat, temperature, updateChatMeta],
+    [chatSettings, currentModel, maxTokens, selectedChat, selectedChatIsIncognito, temperature, updateChatMeta],
   );
 
   const handleModelChange = async (model: string) => {
@@ -341,9 +426,11 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   };
 
   const handleStartNewChat = () => {
+    setError(null);
     setChatForAction(null);
     setDialogMode('create');
     setChatTitleValue('');
+    setCreateIncognito(false);
     setChatTitleDialogOpen(true);
   };
 
@@ -353,7 +440,6 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   };
 
   const handleSubmitChatTitle = async () => {
-    if (!user) return;
     const trimmedTitle = chatTitleValue.trim();
     setSending(true);
     setError(null);
@@ -361,22 +447,32 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
 
     try {
       if (dialogMode === 'create') {
-        const chat = await createChat(trimmedTitle || 'Новый чат');
-        if (!chat) return;
-        setSelectedChat(chat.id);
-        setChatSettings(null);
-        setMessages([]);
-        setChatMeta((prev) => {
-          const next = { ...prev };
-          delete next[chat.id];
-          return next;
-        });
-        navigateToChat(chat.id);
-        success = true;
+        if (createIncognito) {
+          const chat = await createIncognitoChat(trimmedTitle || 'Инкогнито чат');
+          if (chat) {
+            success = true;
+          }
+        } else {
+          const chat = await createChat(trimmedTitle || 'Новый чат');
+          if (!chat) return;
+          setSelectedChat(chat.id);
+          setChatSettings(null);
+          setMessages([]);
+          setChatMeta((prev) => {
+            const next = { ...prev };
+            delete next[chat.id];
+            return next;
+          });
+          navigateToChat(chat.id);
+          success = true;
+        }
       } else if (chatForAction) {
         const nextTitle = trimmedTitle || chatForAction.title;
         await chatApi.renameChat(chatForAction.id, nextTitle);
         updateChatTitle(chatForAction.id, nextTitle);
+        if (incognitoChatId === chatForAction.id) {
+          setIncognitoChat((prev) => (prev ? { ...prev, title: nextTitle } : prev));
+        }
         setChatForAction((prev) => (prev ? { ...prev, title: nextTitle } : prev));
         success = true;
       }
@@ -405,6 +501,10 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
     try {
       await chatApi.deleteChat(chatId);
       removeChat(chatId);
+      if (incognitoChatId === chatId) {
+        setIncognitoChatId(null);
+        setIncognitoChat(null);
+      }
       delete chatCacheRef.current[chatId];
       if (selectedChat === chatId) {
         setSelectedChat(null);
@@ -420,13 +520,18 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   };
 
   const handleDeleteAllChats = async () => {
-    if (!user) return;
+    if (!user) {
+      setError('Авторизуйтесь, чтобы управлять чатами');
+      return;
+    }
     if (!window.confirm('Удалить все чаты?')) return;
     setBulkDeleting(true);
     setError(null);
     try {
       await deleteAllUserChats(user.id);
       replaceChats([]);
+      setIncognitoChatId(null);
+      setIncognitoChat(null);
       chatCacheRef.current = {};
       setSelectedChat(null);
       setMessages([]);
@@ -442,10 +547,17 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   const handleClearChat = async () => {
     if (!selectedChat) return;
     setError(null);
+    if (selectedChatIsIncognito) {
+      setMessages([]);
+      const existing = chatCacheRef.current[selectedChat] ?? { settings: null, messages: [] };
+      chatCacheRef.current[selectedChat] = { ...existing, messages: [] };
+      return;
+    }
     try {
       await chatApi.clearChat(selectedChat);
       setMessages([]);
-      chatCacheRef.current[selectedChat] = { ...chatCacheRef.current[selectedChat], messages: [] };
+      const existing = chatCacheRef.current[selectedChat] ?? { settings: chatSettings };
+      chatCacheRef.current[selectedChat] = { ...existing, messages: [] };
       updateChatMeta(selectedChat, { lastMessageAt: undefined });
     } catch (e) {
       setError((e as Error).message);
@@ -453,7 +565,7 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
   };
 
   const handleSendMessage = async (payload: { text: string; images: string[] }) => {
-    if (!user) return;
+    if (!user && !selectedChatIsIncognito && !createIncognito) return;
 
     const { text, images } = payload;
     setSending(true);
@@ -464,12 +576,17 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
     try {
       let chatId = selectedChat;
       if (!chatId) {
-        const created = await createChat(text.slice(0, 40) || 'Новый чат');
-        if (!created) return;
+        if (createIncognito) {
+          const created = await createIncognitoChat(text.slice(0, 40) || 'Инкогнито чат');
+          chatId = created?.id ?? null;
+        } else {
+          const created = await createChat(text.slice(0, 40) || 'Новый чат');
+          if (!created) return;
 
-        chatId = created.id;
-        setSelectedChat(chatId);
-        navigateToChat(chatId);
+          chatId = created.id;
+          setSelectedChat(chatId);
+          navigateToChat(chatId);
+        }
       }
 
       if (!chatId) return;
@@ -489,7 +606,7 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
 
       const response = await chatApi.sendMessage({
         chatId,
-        userId: user.id,
+        userId: user?.id ?? 0,
         text,
         base64Images: images.length ? images : [],
       });
@@ -532,15 +649,19 @@ export function useChatPage({ chatIdFromRoute = null }: ChatPageProps) {
     chatTitleDialogOpen,
     chatTitleValue,
     dialogMode,
+    createIncognito,
+    incognitoLocked: !user,
     chatForAction,
     deletingChatId,
     bulkDeleting,
     temperature,
     maxTokens,
+    isIncognito: selectedChatIsIncognito,
     scrollAnchorRef,
     scrollContainerRef,
     setChatTitleDialogOpen,
     setChatTitleValue,
+    setCreateIncognito,
     setSettingsOpen,
     handleOpenModelSettings,
     handleCloseModelSettings,
