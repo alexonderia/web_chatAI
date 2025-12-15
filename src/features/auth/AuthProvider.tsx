@@ -10,8 +10,6 @@ import {
 } from 'react';
 import { authApi, AuthPayload } from '@/app/api/auth';
 import { chatApi, ChatSummary } from '@/app/api/chat';
-import { aiApi } from '@/app/api/ai';
-import { settingsApi } from '@/app/api/settings';
 
 interface User {
   id: number;
@@ -29,6 +27,9 @@ interface AuthContextValue {
   register: (payload: AuthPayload) => Promise<void>;
   refreshChats: () => Promise<ChatSummary[]>;
   createChat: (title?: string) => Promise<ChatSummary | null>;
+  replaceChats: (next: ChatSummary[]) => void;
+  updateChatTitle: (chatId: number, title: string) => void;
+  removeChat: (chatId: number) => void;
 
   logout: () => Promise<void>;
   updateLogin: (newLogin: string) => Promise<void>;
@@ -78,10 +79,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
 
   useEffect(() => {
-    if (!user && !initializing) {
-      setChats([]);     
+    if (!user) {
+      setChats([]);
     }
-  }, [user, initializing]);
+  }, [user]);
+
+  const replaceChats = useCallback((next: ChatSummary[]) => {
+    setChats(next);
+  }, []);
+
+  const updateChatTitle = useCallback((chatId: number, title: string) => {
+    setChats((prev) => prev.map((chat) => (chat.id === chatId ? { ...chat, title } : chat)));
+  }, []);
+
+  const removeChat = useCallback((chatId: number) => {
+    setChats((prev) => prev.filter((chat) => chat.id !== chatId));
+  }, []);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -94,25 +107,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedUser: User = JSON.parse(stored);
       setUser(storedUser);
 
-      if (!storedUser?.id) {          // ← 🔥 ВОТ ЭТО
+      if (!storedUser?.id) {
         setInitializing(false);
         return;
       }
 
-      try {
-        await refreshChats(storedUser.id);
-      } catch (e) {
-        console.error('Не удалось получить список чатов при восстановлении сессии', e);
-        setUser(null);
-        setChats([]);
-        localStorage.removeItem(USER_STORAGE_KEY);
-      } finally {
-        setInitializing(false);
-      }
+      setInitializing(false);
     };
 
     void loadSession();
-  }, [refreshChats]);
+  }, []);
 
   const login = useCallback(
     async (payload: AuthPayload) => {
@@ -127,8 +131,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setUser(nextUser);
       persistUser(nextUser);
-
-      await refreshChats(nextUser.id);
     },
     [refreshChats],
   );
@@ -137,37 +139,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async (payload: AuthPayload) => {
       const res = await authApi.register(payload);
 
-      let defaultModel: string | null = null;
-      try {
-        const models = await aiApi.getModels();
-        defaultModel = models[0]?.name ?? null;
-        if (defaultModel) {
-          await settingsApi.saveUserSettings({
-            id: 0,
-            stream: true,
-            userId: res.id,
-            model: defaultModel,
-            temperature: 1,
-            maxTokens: 1024,
-          });
-        }
-      } catch (e) {
-        console.error('Не удалось сохранить настройки модели по умолчанию', e);
-      }
-
       const nextUser: User = {
         id: res.id,
         login: res.login,
-        model: defaultModel,
-        modelChanged: false,
+        model: res.model ?? null,
+        modelChanged: res.modelChanged ?? false,
       };
 
       setUser(nextUser);
       persistUser(nextUser);
       setChats([]);
-    },
-    [],
-  );
+    },[]);
 
   const createChat = useCallback(async (title?: string) => {
     if (!user) return null;
@@ -217,11 +199,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       register,
       refreshChats,
       createChat,
+      replaceChats,
+      updateChatTitle,
+      removeChat,
       logout,
       updateLogin,
       deleteAccount,
     }),
-    [user, chats, initializing, login, register, refreshChats, createChat, logout, updateLogin, deleteAccount],
+    [
+      user,
+      chats,
+      initializing,
+      login,
+      register,
+      refreshChats,
+      createChat,
+      replaceChats,
+      updateChatTitle,
+      removeChat,
+      logout,
+      updateLogin,
+      deleteAccount,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

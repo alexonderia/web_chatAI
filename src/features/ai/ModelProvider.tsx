@@ -51,18 +51,19 @@ export function ModelProvider({ children }: ModelProviderProps) {
     }
   }, []);
 
-  // при первом монтировании грузим модели
-  useEffect(() => {
-    if (!user) return;
-    void reloadModels().catch(() => {});
-  }, [user, reloadModels]);
-
   // когда у пользователя есть своя модель по умолчанию
   useEffect(() => {
     if (user?.model) {
       setSelectedModel(user.model);
     }
   }, [user?.model]);
+
+  useEffect(() => {
+    if (!user) {
+      setModels([]);
+      setSelectedModel(null);
+    }
+  }, [user]);
 
   // если в пользовательских настройках указана модель
   useEffect(() => {

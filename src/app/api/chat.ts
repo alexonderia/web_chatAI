@@ -86,9 +86,8 @@ export const chatApi = {
     return apiClient.post(`/Chat/${chatId}/clear`);
   },
 
-  async getLastMessage(chatId: number) {
-    const r = await fetch(`/api/Chat/${chatId}/messages?limit=1&order=desc`);
-    return await r.json();
+  getLastMessage(chatId: number) {
+    return apiClient.get<ChatMessageDto[]>(`/Chat/${chatId}/messages?limit=1&order=desc`);
   }
 };
 

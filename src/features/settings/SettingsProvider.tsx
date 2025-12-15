@@ -1,4 +1,3 @@
-// src/features/settings/SettingsProvider.tsx
 import {
   createContext,
   ReactNode,
@@ -10,7 +9,6 @@ import {
 } from 'react';
 import { SaveUserSettingsRequest, settingsApi, UserSettingsDto } from '@/app/api/settings';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { aiApi } from '@/app/api/ai';
 
 type SettingsContextValue = {
   settings: UserSettingsDto | null;
@@ -45,21 +43,12 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     setError(null);
     try {
       const data = await settingsApi.getUserSettings(user.id);
-      let model = data.model ?? data.defaultModel ?? null;
 
-      if (!model) {
-        try {
-          const models = await aiApi.getModels();
-          model = models[0]?.name ?? null;
-        } catch (err) {
-          console.error('Не удалось загрузить список моделей', err);
-        }
-      }
       setSettings({
         id: data.id ?? 0,
         stream: data.stream ?? true,
         ...data,
-        model,
+        model: data.model ?? data.defaultModel ?? null,
       });
       setDirty(false);
     } catch (e) {
