@@ -18,7 +18,7 @@ type ModelContextValue = {
   selectedModel: string | null;
 
   selectModel: (modelName: string) => void;
-  reloadModels: () => Promise<void>;
+  reloadModels: () => Promise<AiModel[]>;
 };
 
 const ModelContext = createContext<ModelContextValue | undefined>(undefined);
@@ -41,8 +41,11 @@ export function ModelProvider({ children }: ModelProviderProps) {
     try {
       const data = await aiApi.getModels();
       setModels(data);
+      return data;
     } catch (e) {
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      setError(message);
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -50,7 +53,7 @@ export function ModelProvider({ children }: ModelProviderProps) {
 
   // при первом монтировании грузим модели
   useEffect(() => {
-    void reloadModels();
+    void reloadModels().catch(() => {});
   }, [reloadModels]);
 
   // когда у пользователя есть своя модель по умолчанию

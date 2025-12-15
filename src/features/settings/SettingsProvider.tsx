@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { settingsApi, UserSettingsDto } from '@/app/api/settings';
+import { SaveUserSettingsRequest, settingsApi, UserSettingsDto } from '@/app/api/settings';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { aiApi } from '@/app/api/ai';
 
@@ -45,7 +45,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     setError(null);
     try {
       const data = await settingsApi.getUserSettings(user.id);
-        let model = data.model ?? data.defaultModel ?? null;
+      let model = data.model ?? data.defaultModel ?? null;
 
       if (!model) {
         try {
@@ -55,7 +55,12 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           console.error('Не удалось загрузить список моделей', err);
         }
       }
-      setSettings({ ...data, model });
+      setSettings({
+        id: data.id ?? 0,
+        stream: data.stream ?? true,
+        ...data,
+        model,
+      });
       setDirty(false);
     } catch (e) {
       setError((e as Error).message);
@@ -83,7 +88,14 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     setLoading(true);
     setError(null);
     try {
-      await settingsApi.saveUserSettings({ ...settings, userId: user.id });
+      const payload: SaveUserSettingsRequest = {
+        id: settings.id ?? 0,
+        stream: settings.stream ?? true,
+        ...settings,
+        userId: user.id,
+      };
+
+      await settingsApi.saveUserSettings(payload);
       setDirty(false);
     } catch (e) {
       setError((e as Error).message);

@@ -13,7 +13,7 @@ import { useThemeSettings } from '@/theme/ThemeSettingsProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModels } from '@/features/ai/ModelProvider';
 import { useSettings } from '@/features/settings/SettingsProvider';
-import { aiApi } from '@/app/api/ai';
+import { SaveUserSettingsRequest, settingsApi } from '@/app/api/settings';
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -29,7 +29,7 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
   const { mode, fontSize, setMode, setFontSize } = useThemeSettings();
   const { user, logout, updateLogin, deleteAccount } = useAuth();
   const { models, selectedModel, selectModel, reloadModels } = useModels();
-  const { settings, updateLocal, save, reload } = useSettings();
+  const { settings, updateLocal, reload } = useSettings();
 
   const [editedLogin, setEditedLogin] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
 
     setConnectionState({ type: 'idle', message: '' });
     setAccountError(null);
-  }, [models, open, selectedModel, settings?.defaultModel, settings?.model, settings?.serviceUrl]);
+  }, [ open, settings?.defaultModel, settings?.model, settings?.serviceUrl]);
 
   // Текст статуса подключения
   const connectionText = useMemo(() => {
@@ -108,6 +108,34 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
     }
   };
 
+  const persistSettings = async (modelName: string | null) => {
+    if (!user) return;
+
+    if (!modelName) {
+      throw new Error('Модель по умолчанию не выбрана');
+    }
+
+    updateLocal({
+      serviceUrl,
+      model: modelName,
+      defaultModel: modelName,
+    });
+
+    const payload: SaveUserSettingsRequest = {
+      id: settings?.id ?? 0,
+      stream: settings?.stream ?? true,
+      temperature: settings?.temperature ?? 0,
+      maxTokens: settings?.maxTokens ?? 0,
+      themeMode: settings?.themeMode,
+      serviceUrl,
+      model: modelName,
+      defaultModel: modelName,
+      userId: user.id,
+    };
+
+    await settingsApi.saveUserSettings(payload);
+  };
+
   const runConnectionCheck = async (withSave: boolean) => {
     if (!serviceUrl) return;
 
@@ -115,24 +143,30 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
     setConnectionState({ type: 'idle', message: '' });
 
     try {
-      if (withSave && settings) {
-        const preferredModel = defaultModelValue || selectedModel || settings.defaultModel || null;
-        updateLocal({
-          serviceUrl,
-          defaultModel: preferredModel,
-        });
-        await save();
+      if (withSave) {
+        const preferredModel =
+          defaultModelValue ||
+          selectedModel ||
+          settings?.defaultModel ||
+          models[0]?.name ||
+          null;
+
+        if (!preferredModel) {
+          throw new Error('Не удалось определить модель по умолчанию');
+        }
+
+        await persistSettings(preferredModel);
       }
 
-      const version = await aiApi.getOllamaVersion();
-      await reloadModels();
+      const refreshedModels = await reloadModels();
+      const success = refreshedModels.length > 0;
+      const statusMessage = success
+        ? `Подключение установлено. Доступные модели: ${refreshedModels.length}`
+        : 'Подключение установлено, но список моделей пуст.';
 
       setConnectionState({
-        type: 'success',
-        message:
-          typeof version === 'string'
-            ? `Подключение установлено. Версия: ${version}`
-            : 'Подключение установлено.',
+        type: success ? 'success' : 'error',
+        message: statusMessage,
       });
     } catch (e) {
       setConnectionState({
@@ -167,7 +201,16 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
       // перезагружаем настройки пользователя с сервера
       await reload();
       // перезагружаем модели (на случай смены URL)
-      await reloadModels();
+      const refreshedModels = await reloadModels();
+      const firstModel = refreshedModels[0]?.name;
+
+      if (!firstModel) {
+        throw new Error('Список моделей пуст — невозможно сбросить настройки');
+      }
+
+      await persistSettings(firstModel);
+      selectModel(firstModel);
+      setDefaultModelValue(firstModel);
     } catch (e) {
       setConnectionState({
         type: 'error',
@@ -180,10 +223,9 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
 
   const handleDefaultModelChange = async (value: string) => {
     setDefaultModelValue(value);
-    updateLocal({ defaultModel: value });
     selectModel(value);
     try {
-      await save();
+      await persistSettings(value);
     } catch (e) {
       setConnectionState({
         type: 'error',
@@ -360,6 +402,7 @@ export function UserSettingsDialog({ open, onClose }: UserSettingsDialogProps) {
             placeholder="Выбранная модель"
             variant="outlined"
             value={defaultModelValue}
+            disabled={models.length === 0}
             onChange={(e) => {
               const value = e.target.value;
               void handleDefaultModelChange(value);

@@ -131,6 +131,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         defaultModel = models[0]?.name ?? null;
         if (defaultModel) {
           await settingsApi.saveUserSettings({
+            id: 0,
+            stream: true,
             userId: res.id,
             model: defaultModel,
             temperature: 1,
