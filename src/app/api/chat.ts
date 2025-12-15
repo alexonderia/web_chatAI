@@ -41,6 +41,12 @@ export interface ChatMessageDto {
   images?: (string | { imageBlob?: string; base64Image?: string; imageUrl?: string; url?: string })[];
 }
 
+export interface SendMessageResponse {
+  userMessage: ChatMessageDto;
+  aiMessage: ChatMessageDto;
+}
+
+
 export const chatApi = {
   getUserChats(userId: number) {
     return apiClient.get<ChatSummary[]>(`/Chat/user/${userId}/chats`);
@@ -58,8 +64,10 @@ export const chatApi = {
     return apiClient.get<ChatMessageDto[]>(`/Chat/${chatId}/messages`);
   },
 
-  sendMessage(payload: { chatId: number; userId: number; text: string; base64Images: string[] }) {
-    return apiClient.post('/Chat/send', payload);
+  sendMessage(
+    payload: { chatId: number; userId: number; text: string; base64Images: string[] }
+  ) {
+    return apiClient.post<SendMessageResponse>('/Chat/send', payload);
   },
 
   createChat(payload = {}) {
@@ -77,6 +85,11 @@ export const chatApi = {
   clearChat(chatId: number) {
     return apiClient.post(`/Chat/${chatId}/clear`);
   },
+
+  async getLastMessage(chatId: number) {
+    const r = await fetch(`/api/Chat/${chatId}/messages?limit=1&order=desc`);
+    return await r.json();
+  }
 };
 
 export async function deleteAllUserChats(userId: number) {

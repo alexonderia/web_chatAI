@@ -69,12 +69,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const id = userId ?? user?.id;
       if (!id) return [];
 
-      const data = await chatApi.getUserChats(id);
-      setChats(data);
-      return data;
+      const chats = await chatApi.getUserChats(id);
+      setChats(chats);
+      return chats;
     },
     [user?.id],
   );
+
+
+  useEffect(() => {
+    if (!user && !initializing) {
+      setChats([]);     
+    }
+  }, [user, initializing]);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -86,6 +93,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const storedUser: User = JSON.parse(stored);
       setUser(storedUser);
+
+      if (!storedUser?.id) {          // ← 🔥 ВОТ ЭТО
+        setInitializing(false);
+        return;
+      }
 
       try {
         await refreshChats(storedUser.id);

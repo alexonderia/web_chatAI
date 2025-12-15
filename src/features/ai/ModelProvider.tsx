@@ -53,8 +53,9 @@ export function ModelProvider({ children }: ModelProviderProps) {
 
   // при первом монтировании грузим модели
   useEffect(() => {
+    if (!user) return;
     void reloadModels().catch(() => {});
-  }, [reloadModels]);
+  }, [user, reloadModels]);
 
   // когда у пользователя есть своя модель по умолчанию
   useEffect(() => {
@@ -65,6 +66,7 @@ export function ModelProvider({ children }: ModelProviderProps) {
 
   // если в пользовательских настройках указана модель
   useEffect(() => {
+    if (!user) return;
     if (settings?.model) {
       setSelectedModel(settings.model);
     }

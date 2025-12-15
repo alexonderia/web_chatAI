@@ -201,50 +201,6 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   }, [fallbackModel]);
 
   useEffect(() => {
-    const loadMetaForChats = async () => {
-      const pending = chats.filter((chat) => !chatMeta[chat.id]);
-      if (pending.length === 0) return;
-
-      try {
-        const metaEntries = await Promise.all(
-          pending.map(async (chat) => {
-            try {
-              const [settingsDto, msgs] = await Promise.all([
-                chatApi.getChatSettings(chat.id),
-                chatApi.getMessages(chat.id),
-              ]);
-              return [
-                chat.id,
-                {
-                  lastMessageAt: msgs.at(-1)?.createdAt ?? chat.lastMessageAt,
-                  model: settingsDto.model ?? chat.model ?? null,
-                },
-              ] as const;
-            } catch (err) {
-              console.error(`Не удалось получить метаданные чата ${chat.id}`, err);
-              return [chat.id, { lastMessageAt: chat.lastMessageAt, model: chat.model ?? null }] as const;
-            }
-          }),
-        );
-
-        setChatMeta((prev) => {
-          const next = { ...prev };
-          metaEntries.forEach(([id, meta]) => {
-            if (!next[id]) {
-              next[id] = meta;
-            }
-          });
-          return next;
-        });
-      } catch (err) {
-        console.error('Не удалось загрузить метаданные чатов', err);
-      }
-    };
-
-    void loadMetaForChats();
-  }, [chatMeta, chats]);
-
-  useEffect(() => {
     if (chatSettings) {
       setTemperature(chatSettings.temperature);
       setMaxTokens(chatSettings.maxTokens);
@@ -299,10 +255,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       return;
     }
 
-    if (user) {
-      void refreshChats();
-    }
-  }, [user, initializing, navigate, refreshChats]);
+  }, [user, initializing, navigate]);
 
   const loadChatData = useCallback(async (chatId: number) => {
     setLoadingChat(true);
@@ -328,13 +281,14 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
   }, [updateChatMeta]);
 
   useEffect(() => {
+    if (!user) return;
     if (!selectedChat) {
       setChatSettings(null);
       setMessages([]);
       return;
     }
     void loadChatData(selectedChat);
-  }, [selectedChat, loadChatData]);
+  }, [user, selectedChat, loadChatData]);
 
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'auto') => {
@@ -568,9 +522,11 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
 
   const handleSendMessage = async (payload: { text: string; images: string[] }) => {
     if (!user) return;
+
     const { text, images } = payload;
     setSending(true);
     setError(null);
+
     const imagePreviews = images.map((src) =>
       src.startsWith('data:') ? src : `data:image/png;base64,${src}`,
     );
@@ -580,6 +536,7 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
       if (!chatId) {
         const created = await createChat(text.slice(0, 40) || 'Новый чат');
         if (!created) return;
+
         chatId = created.id;
         setSelectedChat(chatId);
         await refreshChats();
@@ -599,16 +556,21 @@ function NewChatPage({ chatIdFromRoute = null }: NewChatPageProps) {
         },
       ]);
 
-      await chatApi.sendMessage({
+      const response = await chatApi.sendMessage({
         chatId,
         userId: user.id,
         text,
         base64Images: images.length ? images : [],
       });
 
-      const updated = await chatApi.getMessages(chatId);
-      setMessages(mapMessages(updated));
-      updateChatMeta(chatId, { lastMessageAt: updated.at(-1)?.createdAt });
+      setMessages((prev) => [
+        ...prev,
+        mapMessages([response.aiMessage])[0],
+      ]);
+
+      updateChatMeta(chatId, {
+        lastMessageAt: response.aiMessage.createdAt,
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
